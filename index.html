@@ -208,6 +208,35 @@
       margin: 0;
     }
 
+    .prediction-import {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(260px, 1fr));
+      gap: 12px;
+      margin: 12px 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fbfd;
+    }
+
+    .prediction-import label {
+      margin-top: 0;
+    }
+
+    .prediction-import .wide {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .prediction-import .wide button {
+      width: auto;
+      margin-top: 0;
+      padding: 0 14px;
+    }
+
     .module-summary {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1039,6 +1068,24 @@
           <span>The mutant panel bends near changed residues using amino-acid chemistry differences. This is a visual approximation, not a solved structure.</span>
         </div>
 
+        <div class="prediction-import">
+          <div>
+            <label for="wtPdbInput">WT predicted/experimental PDB</label>
+            <input id="wtPdbInput" type="file" accept=".pdb,.ent,.txt">
+            <span class="file-hint">Upload a WT GB1 PDB from AlphaFold, Rosetta, MD, docking, or experiment.</span>
+          </div>
+          <div>
+            <label for="mutPdbInput">Mutant predicted PDB</label>
+            <input id="mutPdbInput" type="file" accept=".pdb,.ent,.txt">
+            <span class="file-hint">Upload the matching mutant PDB to view the real predicted coordinate change.</span>
+          </div>
+          <div class="wide">
+            <button id="loadPdbBtn" type="button" class="secondary-action">Load PDB Structures</button>
+            <button id="clearPdbBtn" type="button" class="secondary-action">Use built-in estimate</button>
+            <span id="pdbStatus" class="view-note">No PDB files loaded. The model is using the built-in visual estimate.</span>
+          </div>
+        </div>
+
         <div class="module-grid">
           <div class="protein-card">
             <h3>Original wild type GB1</h3>
@@ -1106,6 +1153,7 @@
     const clickablePointTargets = new Map();
     const selectedPointByCanvas = new Map();
     const proteinModuleState = { rotX: -0.48, rotY: 0.72, zoom: 1.0, showEffect: true };
+    const pdbStructures = { wt: null, mut: null };
     let activeModuleSelection = null;
 
     document.addEventListener("click", event => {
@@ -2051,6 +2099,17 @@
         drawProteinModule();
       });
 
+      el("loadPdbBtn").addEventListener("click", loadPdbStructures);
+      el("clearPdbBtn").addEventListener("click", () => {
+        pdbStructures.wt = null;
+        pdbStructures.mut = null;
+        el("wtPdbInput").value = "";
+        el("mutPdbInput").value = "";
+        el("pdbStatus").textContent = "No PDB files loaded. The model is using the built-in visual estimate.";
+        renderProteinModuleSummary();
+        drawProteinModule();
+      });
+
       document.querySelectorAll("[data-protein-action]").forEach(button => {
         button.addEventListener("click", () => {
           const action = button.dataset.proteinAction;
@@ -2089,16 +2148,21 @@
         ? "Estimated ranking, not measured binding"
         : "Measured database values";
       const shapeEffect = estimateShapeEffect(mutations);
+      const structureComparison = pdbStructures.wt && pdbStructures.mut
+        ? comparePdbStructures(pdbStructures.wt, pdbStructures.mut)
+        : null;
       el("moduleStatus").innerHTML = `
         Showing <strong>${escapeHtml(label)}</strong> from ${escapeHtml(graphName)}.
         Yellow marks show where the selected mutation changes the displayed WT sequence.
-        The mutant panel adds an estimated local backbone perturbation score of <strong>${shapeEffect.toFixed(2)}</strong>.
+        ${structureComparison
+          ? `Loaded PDB structures are being displayed. Shared-residue CA distance is <strong>${structureComparison.rmsd.toFixed(2)} Angstrom</strong> across ${structureComparison.count} residues.`
+          : `The mutant panel adds an estimated local backbone perturbation score of <strong>${shapeEffect.toFixed(2)}</strong>.`}
       `;
       el("moduleSummary").innerHTML = [
         [label, "Selected candidate"],
         [mutations.length, "Mutation count"],
         [graphName, "Graph source"],
-        [shapeEffect.toFixed(2), "Estimated shape effect"],
+        [structureComparison ? `${structureComparison.rmsd.toFixed(2)} A` : shapeEffect.toFixed(2), structureComparison ? "Loaded-PDB CA distance" : "Estimated shape effect"],
         [evidence, "Evidence type"],
       ].map(([value, text]) => `<div class="module-stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(text)}</span></div>`).join("");
       const chips = mutations.map(m => `<span class="mutation-chip">${escapeHtml(m.wt)}${m.pos}${escapeHtml(m.mut)}</span>`).join("");
@@ -2125,7 +2189,9 @@
           <div class="sequence-label">After mutation:</div>
           <code class="sequence-text">${renderSequence(applied.sequence, applied.changedIndexes)}</code>
         </div>
-        <div class="sequence-note">The mutant-side backbone uses a simple local perturbation model based on amino-acid volume, hydropathy, and charge changes. This makes likely affected regions visible, but it is not a real folded mutant structure.</div>
+        <div class="sequence-note">${structureComparison
+          ? `The canvases are using uploaded PDB coordinates. The distance score is centroid-aligned on shared CA atoms, so it is a quick visual comparison rather than a full structural superposition pipeline.`
+          : `The mutant-side backbone uses a simple local perturbation model based on amino-acid volume, hydropathy, and charge changes. This makes likely affected regions visible, but it is not a real folded mutant structure.`}</div>
         ${warnings}
       `;
     }
@@ -2142,6 +2208,11 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#f8fbfd";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const pdb = mutated ? pdbStructures.mut : pdbStructures.wt;
+      if (pdb) {
+        drawPdbStructureCanvas(ctx, canvas, pdb, mutated);
+        return;
+      }
       const selectedIndexes = new Set(activeModuleSelection?.applied.changedIndexes || []);
       const changedSequence = activeModuleSelection?.applied.sequence || WT_SEQUENCE;
       const backbone = mutated && activeModuleSelection && proteinModuleState.showEffect
@@ -2227,6 +2298,153 @@
         ctx.fillText("Run the workflow, then click a red or blue point in Outputs.", canvas.width / 2, 270);
         ctx.textAlign = "left";
       }
+    }
+
+    async function loadPdbStructures() {
+      const wtFile = el("wtPdbInput").files[0];
+      const mutFile = el("mutPdbInput").files[0];
+      if (!wtFile || !mutFile) {
+        el("pdbStatus").textContent = "Choose both a WT PDB and a mutant PDB before loading structures.";
+        return;
+      }
+      try {
+        const [wtText, mutText] = await Promise.all([wtFile.text(), mutFile.text()]);
+        const wt = parsePdbCaAtoms(wtText, wtFile.name);
+        const mut = parsePdbCaAtoms(mutText, mutFile.name);
+        if (wt.atoms.length < 4 || mut.atoms.length < 4) {
+          throw new Error("Each PDB needs at least 4 CA atoms to render a backbone trace.");
+        }
+        pdbStructures.wt = wt;
+        pdbStructures.mut = mut;
+        const comparison = comparePdbStructures(wt, mut);
+        el("pdbStatus").textContent = `Loaded ${wt.name} (${wt.atoms.length} CA atoms) and ${mut.name} (${mut.atoms.length} CA atoms). Shared CA distance: ${comparison.rmsd.toFixed(2)} A over ${comparison.count} residues.`;
+        renderProteinModuleSummary();
+        drawProteinModule();
+      } catch (err) {
+        console.error(err);
+        el("pdbStatus").textContent = "Could not load PDB files: " + err.message;
+      }
+    }
+
+    function parsePdbCaAtoms(text, name) {
+      const atoms = [];
+      for (const line of text.split(/\r?\n/)) {
+        if (!line.startsWith("ATOM") && !line.startsWith("HETATM")) continue;
+        const atomName = line.slice(12, 16).trim();
+        if (atomName !== "CA") continue;
+        const resName = line.slice(17, 20).trim();
+        const chain = line.slice(21, 22).trim() || "_";
+        const resSeq = Number.parseInt(line.slice(22, 26).trim(), 10);
+        const x = Number.parseFloat(line.slice(30, 38).trim());
+        const y = Number.parseFloat(line.slice(38, 46).trim());
+        const z = Number.parseFloat(line.slice(46, 54).trim());
+        if (!Number.isFinite(resSeq) || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
+        atoms.push({ index: atoms.length, resName, chain, resSeq, key: `${chain}:${resSeq}`, x, y, z });
+      }
+      return { name, atoms };
+    }
+
+    function comparePdbStructures(wt, mut) {
+      const mutByKey = new Map(mut.atoms.map(atom => [atom.key, atom]));
+      const pairs = wt.atoms
+        .map(wtAtom => [wtAtom, mutByKey.get(wtAtom.key)])
+        .filter(([, mutAtom]) => mutAtom);
+      if (!pairs.length) return { count: 0, rmsd: 0 };
+      const wtCenter = centroid(pairs.map(([wtAtom]) => wtAtom));
+      const mutCenter = centroid(pairs.map(([, mutAtom]) => mutAtom));
+      const meanSquare = pairs.reduce((sum, [wtAtom, mutAtom]) => {
+        const dx = (wtAtom.x - wtCenter.x) - (mutAtom.x - mutCenter.x);
+        const dy = (wtAtom.y - wtCenter.y) - (mutAtom.y - mutCenter.y);
+        const dz = (wtAtom.z - wtCenter.z) - (mutAtom.z - mutCenter.z);
+        return sum + dx * dx + dy * dy + dz * dz;
+      }, 0) / pairs.length;
+      return { count: pairs.length, rmsd: Math.sqrt(meanSquare) };
+    }
+
+    function centroid(atoms) {
+      const total = atoms.reduce((acc, atom) => {
+        acc.x += atom.x; acc.y += atom.y; acc.z += atom.z;
+        return acc;
+      }, { x: 0, y: 0, z: 0 });
+      const n = Math.max(atoms.length, 1);
+      return { x: total.x / n, y: total.y / n, z: total.z / n };
+    }
+
+    function drawPdbStructureCanvas(ctx, canvas, pdb, mutated) {
+      const atoms = pdb.atoms;
+      const selectedResidues = new Set((activeModuleSelection?.mutations || []).flatMap(mutation => [mutation.pos, mutation.pos - 1]));
+      const bounds = pdbBounds(atoms);
+      const projected = atoms.map(atom => ({ ...atom, p: projectPdbPoint(atom, bounds, canvas) }));
+
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = mutated ? "rgba(15, 118, 110, 0.78)" : "rgba(37, 99, 235, 0.78)";
+      ctx.lineWidth = 5;
+      for (let i = 0; i < projected.length - 1; i++) {
+        const a = projected[i], b = projected[i + 1];
+        if (a.chain !== b.chain) continue;
+        ctx.beginPath();
+        ctx.moveTo(a.p.x, a.p.y);
+        ctx.lineTo(b.p.x, b.p.y);
+        ctx.stroke();
+      }
+
+      const drawAtoms = [...projected].sort((a, b) => a.p.depth - b.p.depth);
+      for (const atom of drawAtoms) {
+        const selected = selectedResidues.has(atom.resSeq);
+        const radius = selected ? 9 : 3.8;
+        ctx.beginPath();
+        ctx.arc(atom.p.x, atom.p.y, radius * atom.p.scale, 0, Math.PI * 2);
+        ctx.fillStyle = selected ? "#f59e0b" : (mutated ? "#14b8a6" : "#60a5fa");
+        ctx.strokeStyle = selected ? "#7c2d12" : "rgba(15, 23, 42, 0.28)";
+        ctx.lineWidth = selected ? 2 : 0.5;
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      for (const atom of drawAtoms.filter(atom => selectedResidues.has(atom.resSeq))) {
+        ctx.fillStyle = "#111827";
+        ctx.font = "700 13px Segoe UI, Arial";
+        ctx.fillText(`${atom.resName}${atom.resSeq}`, atom.p.x + 9, atom.p.y - 8);
+      }
+
+      ctx.fillStyle = "#17202a";
+      ctx.font = "700 18px Segoe UI, Arial";
+      ctx.fillText(mutated ? "Uploaded mutant PDB" : "Uploaded WT PDB", 20, 28);
+      ctx.fillStyle = "#5d6b7a";
+      ctx.font = "12px Segoe UI, Arial";
+      ctx.fillText(`${pdb.name}: ${atoms.length} CA atoms. Drag/scroll to inspect predicted coordinates.`, 20, 48);
+    }
+
+    function pdbBounds(atoms) {
+      const xs = atoms.map(a => a.x), ys = atoms.map(a => a.y), zs = atoms.map(a => a.z);
+      const minMax = values => ({ min: Math.min(...values), max: Math.max(...values) });
+      return { x: minMax(xs), y: minMax(ys), z: minMax(zs) };
+    }
+
+    function projectPdbPoint(atom, bounds, canvas) {
+      const state = proteinModuleState;
+      const cx0 = (bounds.x.min + bounds.x.max) / 2;
+      const cy0 = (bounds.y.min + bounds.y.max) / 2;
+      const cz0 = (bounds.z.min + bounds.z.max) / 2;
+      const span = Math.max(bounds.x.max - bounds.x.min, bounds.y.max - bounds.y.min, bounds.z.max - bounds.z.min, 1);
+      const px = (atom.x - cx0) / span;
+      const py = (atom.y - cy0) / span;
+      const pz = (atom.z - cz0) / span;
+      const cy = Math.cos(state.rotY), sy = Math.sin(state.rotY);
+      const cx = Math.cos(state.rotX), sx = Math.sin(state.rotX);
+      const x1 = px * cy + pz * sy;
+      const z1 = -px * sy + pz * cy;
+      const y1 = py * cx - z1 * sx;
+      const z2 = py * sx + z1 * cx;
+      const perspective = 850 / (850 + z2 * 170);
+      const scale = 520 * state.zoom * perspective;
+      return {
+        x: canvas.width / 2 + x1 * scale,
+        y: canvas.height / 2 - y1 * scale,
+        depth: z2,
+        scale: perspective,
+      };
     }
 
     function estimateShapeEffect(mutations) {

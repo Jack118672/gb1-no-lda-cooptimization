@@ -17,6 +17,7 @@ https://jack118672.github.io/gb1-no-lda-cooptimization/downloads/GB1_Multi_Mutan
 - Recombines selected singles into double mutants and checks measured double-mutant binding.
 - Extends beyond doubles into capped triple/quadruple multi-mutant recommendations.
 - Provides an interactive 3D Mutation Model that maps selected mutation sites onto a simplified GB1 fold and shows an estimated local shape perturbation.
+- Provides a real-structure import path: upload WT and mutant PDB files from AlphaFold, Rosetta, molecular dynamics, docking, ColabFold, or experimental structures and compare the actual coordinate traces side by side.
 
 No LDA model is used in this current workflow, and there is intentionally no Graph 3.
 
@@ -31,6 +32,7 @@ Then:
 2. Click **Run**.
 3. Open **2. Outputs / Results** to view graphs, tables, and summaries.
 4. Click red or blue graph points to open **3. 3D Model**.
+5. Optional: upload WT and mutant `.pdb` files in the **3D Model** tab to view real predicted/experimental structures instead of the built-in visual estimate.
 
 ## Download As A Windows App
 
@@ -66,3 +68,4 @@ The app uses the files in `data/`:
 - Double-mutant stability is estimated additively as `stability_score_1 + stability_score_2`.
 - Triple and quadruple multi-mutants are ranked recommendations, not experimentally measured binding claims in the local dataset.
 - The 3D Mutation Model is an interpretive structure map. It highlights mutation positions on a simplified GB1 fold, compares WT vs mutated sequence, and bends the mutant-side view near changed residues using amino-acid chemistry differences. It does not run molecular dynamics, docking, AlphaFold, Rosetta, or a true new folding prediction.
+- For true predicted structures, run AlphaFold/Rosetta/MD/docking externally, export WT and mutant PDB files, then upload those files in the app's 3D Model tab. The app renders CA-backbone traces and reports a quick centroid-aligned shared-residue CA distance.
