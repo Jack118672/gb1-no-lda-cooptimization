@@ -12,7 +12,8 @@ What the app does:
 - Runs the no-LDA co-optimization workflow.
 - Shows Inputs / Run, Outputs / Results, and a 3D Mutation Model.
 - Automatically loads a bundled real GB1 WT PDB structure, so no extra structure files are required.
-- Lets you inspect selected red or blue graph points, map mutation sites onto the real GB1 structure trace, and view an estimated local mutant shape effect.
+- Draws the 3D Model as a protein-cartoon ribbon with helix, beta-sheet, and loop regions instead of a dot cloud.
+- Lets you inspect selected red or blue graph points, map mutation sites onto the real GB1 cartoon structure, and view an estimated local mutant shape effect.
 - Optionally lets you upload WT and mutant PDB files from AlphaFold, Rosetta, molecular dynamics, docking, ColabFold, or experimental structures if you want to override the bundled model.
 
 Important:

@@ -16,7 +16,7 @@ https://jack118672.github.io/gb1-no-lda-cooptimization/downloads/GB1_Multi_Mutan
 - Validates selected candidates against measured GB1 binding and source-reported stability values.
 - Recombines selected singles into double mutants and checks measured double-mutant binding.
 - Extends beyond doubles into capped triple/quadruple multi-mutant recommendations.
-- Provides an interactive 3D Mutation Model that automatically loads a bundled real GB1 WT PDB structure, maps selected mutation sites onto that structure, and shows an estimated local mutant shape effect.
+- Provides an interactive 3D Mutation Model that automatically loads a bundled real GB1 WT PDB structure, renders it as a protein-cartoon ribbon with helix, beta-sheet, and loop regions, maps selected mutation sites onto that structure, and shows an estimated local mutant shape effect.
 - Provides an optional real-structure import path: upload WT and mutant PDB files from AlphaFold, Rosetta, molecular dynamics, docking, ColabFold, or experimental structures and compare the actual coordinate traces side by side.
 
 No LDA model is used in this current workflow, and there is intentionally no Graph 3.
