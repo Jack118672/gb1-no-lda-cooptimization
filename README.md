@@ -1,6 +1,6 @@
 # GB1 Multi-Mutant Co-Optimization App
 
-Browser app for a no-LDA GB1 protein-variant co-optimization workflow.
+Browser app for a GB1 protein-variant co-optimization workflow.
 
 Live site:
 https://jack118672.github.io/gb1-no-lda-cooptimization/
@@ -17,8 +17,6 @@ https://jack118672.github.io/gb1-no-lda-cooptimization/downloads/GB1_Multi_Mutan
 - Recombines selected singles into double mutants and checks measured double-mutant binding.
 - Extends beyond doubles into capped higher-order multi-mutant recommendations, now up to 8 mutations.
 - Provides an interactive 3D Mutation Model that automatically loads a bundled real GB1 WT PDB structure, renders it as a protein-cartoon ribbon with helix, beta-sheet, and loop regions, maps selected mutation sites onto that structure, and shows an estimated local mutant shape effect.
-
-No LDA model is used in this current workflow.
 
 ## Use In A Browser
 
