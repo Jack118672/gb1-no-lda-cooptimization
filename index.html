@@ -331,6 +331,13 @@
       line-height: 1.35;
     }
 
+    .metric .explain {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #40566c;
+      line-height: 1.35;
+    }
+
     .plot-wrap {
       overflow-x: auto;
       border: 1px solid var(--line);
@@ -896,18 +903,22 @@
 
     function renderMetrics(singles, selected, generatedDoubles, doubleBackground) {
       const metrics = [
-        ["Singles merged", singles.length],
-        ["Round-1 selected", selected.length],
-        ["Singles above WT binding", singles.filter(r => r.fitness > WT_BINDING).length],
-        ["LM score source", singles.lmScoreSource || "unknown"],
-        ["Generated doubles", generatedDoubles.length],
-        ["Generated doubles with measured binding", generatedDoubles.filter(r => Number.isFinite(r.measuredDoubleFitness)).length],
-        ["Double validation rows", doubleBackground.length],
-        ["Doubles above WT binding", doubleBackground.filter(r => r.measuredDoubleFitness > WT_BINDING).length],
-        ["LDA used", "No"],
+        ["Singles merged", singles.length, "Single mutants with both measured binding and stability data after merging the input files."],
+        ["Round-1 selected", selected.length, "Single mutants chosen by the LM plausibility filter for recombination in Round 2."],
+        ["Singles above WT binding", singles.filter(r => r.fitness > WT_BINDING).length, "Measured single mutants whose binding score is higher than the wild-type baseline."],
+        ["LM score source", singles.lmScoreSource || "unknown", "Shows whether the run used uploaded ESM/LM scores or the built-in fallback proxy."],
+        ["Generated doubles", generatedDoubles.length, "All pairwise double mutants created by recombining the selected Round-1 singles."],
+        ["Generated doubles with measured binding", generatedDoubles.filter(r => Number.isFinite(r.measuredDoubleFitness)).length, "Generated double mutants that could be matched to a measured binding row in the validation dataset."],
+        ["Double validation rows", doubleBackground.length, "All measured double mutants available for the background comparison graph."],
+        ["Doubles above WT binding", doubleBackground.filter(r => r.measuredDoubleFitness > WT_BINDING).length, "Measured double mutants in the validation table whose binding score beats wild type."],
+        ["LDA used", "No", "Confirms this clean workflow does not use LDA or a learned Pareto predictor."],
       ];
-      el("metrics").innerHTML = metrics.map(([label, value]) => `
-        <div class="metric"><div class="value">${value.toLocaleString?.() ?? value}</div><div class="label">${label}</div></div>
+      el("metrics").innerHTML = metrics.map(([label, value, explain]) => `
+        <div class="metric">
+          <div class="value">${value.toLocaleString?.() ?? value}</div>
+          <div class="label">${label}</div>
+          <div class="explain">${explain}</div>
+        </div>
       `).join("");
     }
 
