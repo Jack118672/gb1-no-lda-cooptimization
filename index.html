@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GB1 No-LDA Co-Optimization Demo</title>
+  <title>GB1 Multi-Mutant Co-Optimization App</title>
   <style>
     :root {
       --bg: #f3f7fb;
@@ -110,10 +110,137 @@
     .workflow-card.recombine { border-top: 4px solid var(--green); }
 
     main {
-      display: grid;
-      grid-template-columns: 340px minmax(0, 1fr);
-      gap: 18px;
+      display: block;
       padding: 18px;
+    }
+
+    .app-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 14px 18px 0;
+    }
+
+    .app-tabs button {
+      width: auto;
+      min-width: 120px;
+      margin: 0;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .app-tabs button.active {
+      border-color: #245b7a;
+      background: #245b7a;
+      color: #fff;
+    }
+
+    .app-tabs button.ready {
+      border-color: #0f8a8a;
+      box-shadow: 0 0 0 3px rgba(15, 138, 138, 0.14);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .module-grid {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .protein-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .protein-card h3 {
+      margin: 0;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 16px;
+      color: var(--ink);
+    }
+
+    .protein-card canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #f8fbfd;
+      cursor: grab;
+    }
+
+    .protein-card canvas.dragging {
+      cursor: grabbing;
+    }
+
+    .module-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .module-stat {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 12px;
+    }
+
+    .module-stat strong {
+      display: block;
+      color: var(--ink);
+      font-size: 17px;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .module-stat span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .mutation-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .mutation-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid #9cc6d8;
+      background: #eef8fb;
+      color: #13445f;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .input-shell {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) minmax(320px, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .outputs-shell {
+      display: block;
     }
 
     aside, section {
@@ -125,8 +252,6 @@
     aside {
       padding: 18px;
       height: fit-content;
-      position: sticky;
-      top: 16px;
     }
 
     section {
@@ -169,6 +294,18 @@
     button:disabled {
       opacity: 0.45;
       cursor: not-allowed;
+    }
+
+    .secondary-action {
+      background: #fff;
+      color: #245b7a;
+      border: 1px solid #245b7a;
+    }
+
+    .secondary-action.ready {
+      background: linear-gradient(135deg, #0f766e, #245b7a);
+      color: #fff;
+      border: 0;
     }
 
     .plot-controls {
@@ -223,6 +360,78 @@
       background: var(--soft-amber);
       border-color: #f1d18f;
       color: #6b4b08;
+    }
+
+    .best-card {
+      display: grid;
+      grid-template-columns: minmax(190px, 0.75fr) minmax(260px, 1.25fr);
+      gap: 18px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(135deg, #f7fbfc, #eef6f7);
+    }
+
+    .best-card .best-value {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--green);
+      line-height: 1.1;
+    }
+
+    .best-card .best-label {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .best-card .best-note {
+      font-size: 13px;
+      line-height: 1.45;
+      color: #233646;
+    }
+
+    .interpretation-panel {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--green);
+      border-radius: 8px;
+      background: #f7fbfc;
+    }
+
+    .interpretation-panel h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .interpretation-panel ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #30485a;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .point-tooltip {
+      position: fixed;
+      z-index: 50;
+      max-width: 250px;
+      padding: 9px 10px;
+      border: 1px solid rgba(23, 32, 42, 0.25);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 8px 24px rgba(23, 32, 42, 0.18);
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.35;
+      pointer-events: none;
+      display: none;
+    }
+
+    .point-tooltip strong {
+      display: block;
+      margin-bottom: 4px;
     }
 
     .file-hint {
@@ -507,7 +716,7 @@
       main { grid-template-columns: 1fr; }
       aside { position: static; }
       .metrics { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
-      .hero-grid, .graph-help { grid-template-columns: 1fr; }
+      .hero-grid, .graph-help, .input-shell { grid-template-columns: 1fr; }
       .section-title { display: block; }
       .badge { margin-bottom: 8px; }
     }
@@ -516,11 +725,11 @@
 <body>
   <header>
     <div class="eyebrow">No-LDA GB1 workflow</div>
-    <h1>GB1 No-LDA Co-Optimization Demo</h1>
+    <h1>GB1 Multi-Mutant Co-Optimization App</h1>
     <p>
-      Upload the CSV inputs from the package. The page scores single mutations with ESM/LM plausibility,
+      Run with the packaged GB1 CSV inputs, or upload replacement CSVs. The page scores single mutations with ESM/LM plausibility,
       selects Round-1 candidates, validates them against measured binding and stability values, then
-      recombines selected singles into Round-2 double mutants. No LDA model or graph 3 is used.
+      recombines selected singles into double and higher-order multi-mutant candidates. No LDA model or graph 3 is used.
     </p>
     <div class="hero-grid">
       <div class="workflow-card score"><strong>1. Score</strong><span>Use uploaded ESM `lm_score` values, or a fallback proxy if ESM scores are missing.</span></div>
@@ -530,34 +739,51 @@
     </div>
   </header>
 
+  <div class="app-tabs" aria-label="App tabs">
+    <button type="button" class="active" data-app-tab="inputsTab">1. Inputs / Run</button>
+    <button type="button" data-app-tab="outputsTab">2. Outputs / Results</button>
+    <button type="button" data-app-tab="moduleTab">3. 3D Module</button>
+  </div>
+
   <main>
+    <section id="inputsTab" class="tab-panel active">
+      <div class="input-shell">
     <aside>
       <h2>Inputs</h2>
       <label for="singleFitness">Single-mutant binding CSV</label>
       <input id="singleFitness" type="file" accept=".csv">
-      <span class="file-hint">Use `gb1_fitness_singles.csv`. Provides measured binding fitness.</span>
+      <span class="file-hint">Default: `data/gb1_fitness_singles.csv`. Upload here only if replacing the packaged data.</span>
 
       <label for="singleStability">Single-mutant stability CSV</label>
       <input id="singleStability" type="file" accept=".csv">
-      <span class="file-hint">Use `gb1_stability_deltaG.csv`. Provides the source stability score.</span>
+      <span class="file-hint">Default: `data/gb1_stability_deltaG.csv`. Provides the source stability score.</span>
 
       <label for="doubleFitness">Double-mutant binding CSV</label>
       <input id="doubleFitness" type="file" accept=".csv">
-      <span class="file-hint">Use `gb1_fitness_doubles.csv`. Used only for Round-2 validation.</span>
+      <span class="file-hint">Default: `data/gb1_fitness_doubles.csv`. Used only for Round-2 validation.</span>
 
       <label for="lmScores">Optional ESM/LM scores CSV</label>
       <input id="lmScores" type="file" accept=".csv">
-      <span class="file-hint">Use `gb1_lm_scores.csv` for the current valid ESM2-backed run.</span>
+      <span class="file-hint">Default: `data/gb1_lm_scores.csv` for the current valid ESM2-backed run.</span>
 
       <label for="candidateCount">Round-1 candidates</label>
       <input id="candidateCount" type="number" min="2" max="80" value="20">
       <span class="file-hint">How many top LM-plausible single mutants to carry into Round 2.</span>
 
+      <label for="mutationOrder">Largest mutation combination</label>
+      <input id="mutationOrder" type="number" min="2" max="4" value="3">
+      <span class="file-hint">Use 2 for doubles, 3 for triples, or 4 for quadruples. Higher orders are capped to avoid lag.</span>
+
+      <label for="multiLimit">Max multi-mutants to generate</label>
+      <input id="multiLimit" type="number" min="100" max="20000" value="3000">
+      <span class="file-hint">Limits generated higher-order combinations so the browser stays responsive.</span>
+
       <button id="runBtn">Run</button>
-      <div id="status" class="status">Waiting for CSV files.</div>
+      <div id="status" class="status">Ready. Click Run to use the packaged GB1 CSV files.</div>
+      <button id="viewOutputsBtn" type="button" class="secondary-action" disabled>View Outputs / Results</button>
 
       <div class="note good">
-        Recommended: upload `gb1_lm_scores.csv` so the page uses the current ESM2-backed `lm_score` values.
+        Recommended: open this app with `start_app.bat`, click Run on this page, then open the Outputs / Results page when the run is finished.
       </div>
 
       <div class="note warn">
@@ -566,16 +792,46 @@
       </div>
     </aside>
 
-    <div>
+        <section>
+          <div class="section-title">
+            <div>
+              <h2>How This App Uses The Inputs</h2>
+              <p>The input tab is where you choose the measured datasets and set how far beyond double mutants the app should explore.</p>
+            </div>
+            <span class="badge blue">Guide</span>
+          </div>
+          <div class="graph-help">
+            <div class="x"><strong>Measured data</strong>Binding and stability CSVs anchor the graphs and validation tables.</div>
+            <div class="y"><strong>LM score</strong>ESM/LM plausibility ranks which singles enter recombination.</div>
+            <div class="z"><strong>Multi-mutants</strong>Triples/quads are ranked by additive stability, additive LM score, and single-mutant binding evidence.</div>
+            <div class="red"><strong>Safety cap</strong>The max multi-mutant limit prevents huge combination counts from slowing the page.</div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="outputsTab" class="tab-panel">
+    <div class="outputs-shell">
       <section>
         <div class="section-title">
           <div>
             <h2>Run Summary</h2>
-            <p>These cards tell you how many variants were loaded, selected, generated, and validated.</p>
+            <p>This results page updates after you run the workflow from the Inputs / Run page.</p>
           </div>
           <span class="badge purple">Overview</span>
         </div>
         <div id="metrics" class="metrics"></div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Best Candidate</h2>
+            <p>This card gives the audience the fastest single takeaway from the run.</p>
+          </div>
+          <span class="badge green">Result</span>
+        </div>
+        <div id="bestCandidate" class="best-card"></div>
       </section>
 
       <section>
@@ -587,7 +843,9 @@
           <span class="badge amber">Graph 1</span>
         </div>
         <div class="plot-controls" aria-label="Graph 1 view controls">
-          <button type="button" data-reset-target="plot1">Reset 3D view</button>
+          <button type="button" class="active" data-view-target="plot1" data-view-mode="3d">3D</button>
+          <button type="button" data-view-target="plot1" data-view-mode="2d">2D</button>
+          <button type="button" data-reset-target="plot1">Reset view</button>
           <span class="view-note">Drag to rotate. Scroll to zoom. Click a red or blue point to compare its sequence to WT.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot1" width="1100" height="650"></canvas></div>
@@ -604,6 +862,7 @@
           <div class="z"><strong>Z-axis</strong>ESM/LM plausibility score used to rank Round-1 candidates.</div>
           <div class="red"><strong>Red points</strong>Mutations selected because their `lm_score` was high.</div>
         </div>
+        <div id="plot1Interpretation" class="interpretation-panel"></div>
       </section>
 
       <section>
@@ -615,7 +874,9 @@
           <span class="badge blue">Graph 2</span>
         </div>
         <div class="plot-controls" aria-label="Graph 2 view controls">
-          <button type="button" data-reset-target="plot2">Reset 3D view</button>
+          <button type="button" class="active" data-view-target="plot2" data-view-mode="3d">3D</button>
+          <button type="button" data-view-target="plot2" data-view-mode="2d">2D</button>
+          <button type="button" data-reset-target="plot2">Reset view</button>
           <span class="view-note">Drag to rotate. Scroll to zoom. Click a red or blue point to compare its sequence to WT.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot2" width="1100" height="650"></canvas></div>
@@ -633,6 +894,7 @@
           <div class="red"><strong>Red points</strong>Round-1 candidates selected by LM plausibility.</div>
         </div>
         <div class="note">This graph uses measured binding and stability values, with LM score shown only as the 3D Z-axis. It does not use LDA or a trained Pareto predictor.</div>
+        <div id="plot2Interpretation" class="interpretation-panel"></div>
       </section>
 
       <section>
@@ -655,7 +917,9 @@
           <span class="badge green">Graph 4</span>
         </div>
         <div class="plot-controls" aria-label="Graph 4 view controls">
-          <button type="button" data-reset-target="plot4">Reset 3D view</button>
+          <button type="button" class="active" data-view-target="plot4" data-view-mode="3d">3D</button>
+          <button type="button" data-view-target="plot4" data-view-mode="2d">2D</button>
+          <button type="button" data-reset-target="plot4">Reset view</button>
           <span class="view-note">Drag to rotate. Scroll to zoom. Click a red or blue point to compare its sequence to WT.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot4" width="1100" height="650"></canvas></div>
@@ -672,6 +936,7 @@
           <div class="z"><strong>Z-axis</strong>Additive LM score: LM score 1 + LM score 2.</div>
           <div class="red"><strong>Red points</strong>Generated double mutants made from selected Round-1 singles.</div>
         </div>
+        <div id="plot4Interpretation" class="interpretation-panel"></div>
       </section>
 
       <section>
@@ -684,8 +949,89 @@
         </div>
         <div id="round2Table" class="table-wrap"></div>
       </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Higher-Order Multi-Mutant Candidates</h2>
+            <p>This section extends the workflow past double mutants into triples and quadruples using capped, ranked combinations.</p>
+          </div>
+          <span class="badge purple">Multi</span>
+        </div>
+        <div id="multiInterpretation" class="interpretation-panel"></div>
+        <div class="plot-controls" aria-label="Multi-mutant graph view controls">
+          <button type="button" class="active" data-view-target="plotMulti" data-view-mode="3d">3D</button>
+          <button type="button" data-view-target="plotMulti" data-view-mode="2d">2D</button>
+          <button type="button" data-reset-target="plotMulti">Reset view</button>
+          <span class="view-note">Drag to rotate. Scroll to zoom. Click a red multi-mutant point to compare its sequence to WT. These are recommendations for testing, not measured binding claims.</span>
+        </div>
+        <div class="plot-wrap"><canvas id="plotMulti" width="1100" height="650"></canvas></div>
+        <div id="plotMultiDetail" class="mutation-detail empty"></div>
+        <div class="legend">
+          <span><span class="dot gray"></span>Generated higher-order candidates</span>
+          <span><span class="dot red"></span>Top ranked multi-mutants</span>
+          <span><span class="dot wt"></span>WT binding evidence threshold = 1.0</span>
+        </div>
+        <div class="graph-help">
+          <div class="x"><strong>X-axis</strong>Average measured binding of the component single mutants.</div>
+          <div class="y"><strong>Y-axis</strong>Additive stability score across all component mutations.</div>
+          <div class="z"><strong>Z-axis</strong>Additive ESM/LM plausibility score across all component mutations.</div>
+          <div class="red"><strong>Red points</strong>Top ranked triples/quads selected as testable recommendations.</div>
+        </div>
+        <div id="multiTable" class="table-wrap"></div>
+      </section>
     </div>
+    </section>
+
+    <section id="moduleTab" class="tab-panel">
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>3D Mutation Module</h2>
+            <p>Click a red or blue point in the graphs to send that candidate here for WT-vs-mutant structure mapping.</p>
+          </div>
+          <span class="badge purple">3D</span>
+        </div>
+
+        <div id="moduleStatus" class="note good">
+          No graph point selected yet. Run the workflow, open Outputs / Results, then click a red or blue point.
+        </div>
+
+        <div id="moduleSummary" class="module-summary"></div>
+
+        <div class="plot-controls" aria-label="3D module controls">
+          <button type="button" data-module-reset>Reset view</button>
+          <button type="button" data-protein-action="left">Rotate left</button>
+          <button type="button" data-protein-action="right">Rotate right</button>
+          <button type="button" data-protein-action="up">Tilt up</button>
+          <button type="button" data-protein-action="down">Tilt down</button>
+          <button type="button" data-protein-action="zoomIn">Zoom in</button>
+          <button type="button" data-protein-action="zoomOut">Zoom out</button>
+          <span class="view-note">Drag either protein to rotate both. Scroll or use the buttons to zoom. Yellow sites are the residues changed by the selected mutation.</span>
+        </div>
+
+        <div class="module-grid">
+          <div class="protein-card">
+            <h3>Original wild type GB1</h3>
+            <canvas id="wtProteinCanvas" width="560" height="500"></canvas>
+          </div>
+          <div class="protein-card">
+            <h3>After selected mutation</h3>
+            <canvas id="mutProteinCanvas" width="560" height="500"></canvas>
+          </div>
+        </div>
+
+        <div class="mutation-detail" id="moduleSequenceDetail">
+          Select a candidate point to compare the original WT sequence against the mutated sequence.
+        </div>
+
+        <div class="note warn">
+          This module maps mutation sites onto a simplified GB1 fold for interpretation. It does not run molecular dynamics, docking, or a new folding prediction.
+        </div>
+      </section>
+    </section>
   </main>
+  <div id="pointTooltip" class="point-tooltip"></div>
 
   <script>
     const HYDROPATHY = {A:1.8,C:2.5,D:-3.5,E:-3.5,F:2.8,G:-0.4,H:-3.2,I:4.5,K:-3.9,L:3.8,M:1.9,N:-3.5,P:-1.6,Q:-3.5,R:-4.5,S:-0.8,T:-0.7,V:4.2,W:-0.9,Y:-1.3};
@@ -693,6 +1039,13 @@
     const CHARGE = {A:0,C:0,D:-1,E:-1,F:0,G:0,H:0.1,I:0,K:1,L:0,M:0,N:0,P:0,Q:0,R:1,S:0,T:0,V:0,W:0,Y:0};
     const WT_BINDING = 1.0;
     const WT_SEQUENCE = "QYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTE";
+    const GB1_BACKBONE = buildGb1Backbone();
+    const DEFAULT_CSVS = {
+      singleFitness: "data/gb1_fitness_singles.csv",
+      singleStability: "data/gb1_stability_deltaG.csv",
+      doubleFitness: "data/gb1_fitness_doubles.csv",
+      lmScores: "data/gb1_lm_scores.csv",
+    };
     const BLOSUM_TEXT = `
        A  R  N  D  C  Q  E  G  H  I  L  K  M  F  P  S  T  W  Y  V
     A  4 -1 -2 -2  0 -1 -1  0 -2 -1 -1 -1 -1 -2 -1  1  0 -3 -2  0
@@ -720,13 +1073,19 @@
     const el = id => document.getElementById(id);
     const plotConfigs = new Map();
     const plot3dStates = new Map();
+    const plotViewModes = { plot1: "3d", plot2: "3d", plot4: "3d", plotMulti: "3d" };
     const clickablePointTargets = new Map();
     const selectedPointByCanvas = new Map();
-
-    initializeEmptyState();
-    register3dCanvasEvents();
+    const proteinModuleState = { rotX: -0.48, rotY: 0.72, zoom: 1.0 };
+    let activeModuleSelection = null;
 
     document.addEventListener("click", event => {
+      const appTabButton = event.target.closest("[data-app-tab]");
+      if (appTabButton) {
+        switchAppTab(appTabButton.dataset.appTab);
+        return;
+      }
+
       const resetButton = event.target.closest("[data-reset-target]");
       if (resetButton) {
         const canvasId = resetButton.dataset.resetTarget;
@@ -737,19 +1096,38 @@
         if (cfg) drawScatter(canvasId, cfg);
         return;
       }
+
+      const viewButton = event.target.closest("[data-view-target]");
+      if (viewButton) {
+        const canvasId = viewButton.dataset.viewTarget;
+        plotViewModes[canvasId] = viewButton.dataset.viewMode;
+        document.querySelectorAll(`[data-view-target="${canvasId}"]`).forEach(button => {
+          button.classList.toggle("active", button.dataset.viewMode === plotViewModes[canvasId]);
+        });
+        const cfg = plotConfigs.get(canvasId);
+        if (cfg) drawScatter(canvasId, cfg);
+      }
     });
+
+    register3dCanvasEvents();
+    registerProteinModuleEvents();
+    initializeEmptyState();
+    initializeProteinModuleEmpty();
 
     el("runBtn").addEventListener("click", async () => {
       try {
+        setOutputsReady(false);
+        el("runBtn").disabled = true;
+        el("runBtn").textContent = "Running...";
         setStatus("Reading CSV files...");
-        const singleFitness = await readCsvFile(el("singleFitness").files[0], "single-mutant binding");
-        const singleStability = await readCsvFile(el("singleStability").files[0], "single-mutant stability");
-        const doubleFitness = await readCsvFile(el("doubleFitness").files[0], "double-mutant binding");
-        const lmScores = el("lmScores").files[0]
-          ? await readCsvFile(el("lmScores").files[0], "optional ESM/LM scores")
-          : null;
+        const singleFitness = await readCsvInput(el("singleFitness").files[0], "single-mutant binding", DEFAULT_CSVS.singleFitness);
+        const singleStability = await readCsvInput(el("singleStability").files[0], "single-mutant stability", DEFAULT_CSVS.singleStability);
+        const doubleFitness = await readCsvInput(el("doubleFitness").files[0], "double-mutant binding", DEFAULT_CSVS.doubleFitness);
+        const lmScores = await readCsvInput(el("lmScores").files[0], "optional ESM/LM scores", DEFAULT_CSVS.lmScores, true);
         const targetN = Math.max(2, Number(el("candidateCount").value || 20));
-        ["plot1", "plot2", "plot4"].forEach(canvasId => {
+        const maxOrder = Math.max(2, Math.min(4, Number(el("mutationOrder").value || 3)));
+        const multiLimit = Math.max(100, Math.min(20000, Number(el("multiLimit").value || 3000)));
+        ["plot1", "plot2", "plot4", "plotMulti"].forEach(canvasId => {
           selectedPointByCanvas.delete(canvasId);
           renderMutationDetail(canvasId, null);
         });
@@ -765,10 +1143,18 @@
           .sort((a, b) => b.doubleLmScore - a.doubleLmScore || b.measuredDoubleFitness - a.measuredDoubleFitness)
           .slice(0, 30);
         const doubleBackground = buildDoubleBackground(singles, doubleFitness);
+        const multiMutants = buildMultiMutants(selected, maxOrder, multiLimit);
+        const topMulti = [...multiMutants]
+          .sort((a, b) => b.recommendationScore - a.recommendationScore)
+          .slice(0, 30);
 
         renderMetrics(singles, selected, generatedDoubles, doubleBackground);
+        renderBestCandidate(generatedDoubles, selected);
+        renderInterpretations(singles, selected, generatedDoubles, doubleBackground);
+        renderMultiInterpretation(multiMutants, topMulti, maxOrder, multiLimit);
         renderTable("round1Table", selected.slice(0, 30), ["mutation", "fitness", "stabilityScore", "lmScore", "measuredPareto", "bindingImprovesVsWt"]);
         renderTable("round2Table", highlightedDoubles.slice(0, 30), ["doubleMutation", "measuredDoubleFitness", "doubleStabilityScore", "doubleLmScore", "bindingImprovesVsWt"]);
+        renderTable("multiTable", topMulti, ["multiMutation", "mutationCount", "bindingEvidence", "additiveStabilityScore", "additiveLmScore", "recommendationScore", "evidenceType"]);
 
         plotScatter("plot1", {
           title: "Graph 1 - Single-mutant selection map",
@@ -813,18 +1199,61 @@
           maxBackgroundDraw: 30000,
         });
 
-        setStatus("Done. Graph 1, Graph 2, and Graph 4 are rendered below. Graph 3 was the old LDA branch and is intentionally not part of this no-LDA workflow.");
+        plotScatter("plotMulti", {
+          title: "Multi-mutant prioritization beyond doubles",
+          xLabel: "Average single-mutant binding evidence",
+          yLabel: "Additive stability score",
+          zLabel: "Additive ESM/LM score",
+          background: multiMutants,
+          pareto: [],
+          highlight: topMulti,
+          x: "bindingEvidence",
+          y: "additiveStabilityScore",
+          z: "additiveLmScore",
+          highlightLabel: "multiMutation",
+          maxBackgroundDraw: 7000,
+        });
+
+        setOutputsReady(true);
+        setStatus("Done. Results are ready. Click View Outputs / Results, or use the 2. Outputs / Results tab, to see the graphs, tables, and summaries.");
       } catch (err) {
         console.error(err);
         setStatus("Error: " + err.message);
+      } finally {
+        el("runBtn").disabled = false;
+        el("runBtn").textContent = "Run";
       }
     });
+
+    el("viewOutputsBtn").addEventListener("click", () => {
+      switchAppTab("outputsTab");
+    });
+
+    function switchAppTab(tabId) {
+      document.querySelectorAll("[data-app-tab]").forEach(button => {
+        button.classList.toggle("active", button.dataset.appTab === tabId);
+      });
+      document.querySelectorAll(".tab-panel").forEach(panel => {
+        panel.classList.toggle("active", panel.id === tabId);
+      });
+      if (tabId === "moduleTab") drawProteinModule();
+    }
 
     function setStatus(text) {
       el("status").textContent = text;
     }
 
+    function setOutputsReady(isReady) {
+      const outputsTab = document.querySelector('[data-app-tab="outputsTab"]');
+      const viewButton = el("viewOutputsBtn");
+      outputsTab.classList.toggle("ready", isReady);
+      viewButton.disabled = !isReady;
+      viewButton.classList.toggle("ready", isReady);
+      viewButton.textContent = isReady ? "View Outputs / Results" : "Outputs will appear after Run";
+    }
+
     function initializeEmptyState() {
+      setOutputsReady(false);
       el("metrics").innerHTML = [
         ["Upload", "3 required CSVs"],
         ["Optional", "ESM lm_score CSV"],
@@ -836,9 +1265,23 @@
       drawEmptyPlot("plot1", "Graph 1 will show selected single mutants after you run the workflow.");
       drawEmptyPlot("plot2", "Graph 2 will validate selected singles using measured binding and stability.");
       drawEmptyPlot("plot4", "Graph 4 will show generated double mutants after Round 2.");
-      ["plot1", "plot2", "plot4"].forEach(canvasId => renderMutationDetail(canvasId, null));
+      drawEmptyPlot("plotMulti", "Multi-mutant graph will show capped triples/quads after you run the workflow.");
+      ["plot1", "plot2", "plot4", "plotMulti"].forEach(canvasId => renderMutationDetail(canvasId, null));
+      el("bestCandidate").innerHTML = `
+        <div>
+          <div class="best-value">Waiting</div>
+          <div class="best-label">Run the workflow to identify the best generated binder.</div>
+        </div>
+        <div class="best-note">This preview card will highlight the strongest generated double mutant and explain why it matters.</div>
+      `;
+      ["plot1", "plot2", "plot4"].forEach(canvasId => {
+        const panel = el(`${canvasId}Interpretation`);
+        if (panel) panel.innerHTML = "<h3>Interpretation</h3><ul><li>Run the workflow to generate automatic result takeaways.</li></ul>";
+      });
+      el("multiInterpretation").innerHTML = "<h3>Multi-mutant interpretation</h3><ul><li>Run the workflow to rank triples/quads using additive stability, additive LM score, and single-mutant binding evidence.</li></ul>";
       el("round1Table").innerHTML = "<p class='note'>Run the workflow to see the selected Round-1 candidates.</p>";
       el("round2Table").innerHTML = "<p class='note'>Run the workflow to see highlighted Round-2 double mutants.</p>";
+      el("multiTable").innerHTML = "<p class='note'>Run the workflow to see ranked higher-order multi-mutants.</p>";
     }
 
     function drawEmptyPlot(canvasId, message) {
@@ -861,13 +1304,29 @@
       ctx.font = "15px Segoe UI, Arial";
       ctx.fillStyle = "#5d6b7a";
       ctx.fillText(message, canvas.width / 2, 320);
-      ctx.fillText("Upload the CSV files on the left, then click Run.", canvas.width / 2, 348);
+      ctx.fillText("Click Run to use packaged CSVs, or upload replacement CSVs first.", canvas.width / 2, 348);
       ctx.textAlign = "left";
     }
 
-    async function readCsvFile(file, label) {
-      if (!file) throw new Error(`Missing ${label} CSV.`);
-      const text = await file.text();
+    async function readCsvInput(file, label, defaultPath, optional = false) {
+      if (file) return parseCsv(await file.text());
+      if (!defaultPath) {
+        if (optional) return null;
+        throw new Error(`Missing ${label} CSV.`);
+      }
+      if (location.protocol === "file:") {
+        throw new Error(
+          "The app is opened directly as a file, so your browser cannot auto-read the packaged CSVs. " +
+          "Double-click start_app.bat in the app folder, then click Run again. " +
+          "Alternative: manually upload the four CSV files from the data folder."
+        );
+      }
+      const response = await fetch(defaultPath);
+      if (!response.ok) {
+        if (optional) return null;
+        throw new Error(`Could not load ${label} CSV from ${defaultPath}.`);
+      }
+      const text = await response.text();
       return parseCsv(text);
     }
 
@@ -1029,6 +1488,70 @@
       return out;
     }
 
+    function buildMultiMutants(selected, maxOrder, limit) {
+      const startOrder = maxOrder <= 2 ? 2 : 3;
+      const generated = [];
+      const sortedSingles = [...selected].sort((a, b) => b.lmScore - a.lmScore || b.fitness - a.fitness);
+      for (let order = startOrder; order <= maxOrder; order++) {
+        combineSingles(sortedSingles, order, 0, [], combo => {
+          if (generated.length >= limit) return false;
+          generated.push(makeMultiMutant(combo));
+          return true;
+        });
+        if (generated.length >= limit) break;
+      }
+      addRecommendationScores(generated);
+      return generated;
+    }
+
+    function combineSingles(rows, order, start, combo, visit) {
+      if (combo.length === order) return visit(combo);
+      for (let i = start; i <= rows.length - (order - combo.length); i++) {
+        const row = rows[i];
+        if (combo.some(existing => existing.pos === row.pos)) continue;
+        combo.push(row);
+        const keepGoing = combineSingles(rows, order, i + 1, combo, visit);
+        combo.pop();
+        if (keepGoing === false) return false;
+      }
+      return true;
+    }
+
+    function makeMultiMutant(combo) {
+      const ordered = [...combo].sort((a, b) => a.pos - b.pos);
+      const mutationCount = ordered.length;
+      const additiveStabilityScore = ordered.reduce((sum, row) => sum + row.stabilityScore, 0);
+      const additiveLmScore = ordered.reduce((sum, row) => sum + row.lmScore, 0);
+      const bindingEvidence = ordered.reduce((sum, row) => sum + row.fitness, 0) / mutationCount;
+      return {
+        multiMutation: ordered.map(row => row.mutation).join("+"),
+        mutationCount,
+        bindingEvidence,
+        additiveStabilityScore,
+        additiveLmScore,
+        evidenceType: mutationCount > 2 ? "estimated from singles; not measured binding" : "double order candidate",
+      };
+    }
+
+    function addRecommendationScores(rows) {
+      const b = zScoreHelper(rows, "bindingEvidence");
+      const s = zScoreHelper(rows, "additiveStabilityScore");
+      const lm = zScoreHelper(rows, "additiveLmScore");
+      rows.forEach(row => {
+        row.recommendationScore =
+          0.45 * b(row.bindingEvidence) +
+          0.30 * s(row.additiveStabilityScore) +
+          0.25 * lm(row.additiveLmScore);
+      });
+    }
+
+    function zScoreHelper(rows, key) {
+      const values = rows.map(row => row[key]).filter(Number.isFinite);
+      const mean = values.reduce((sum, value) => sum + value, 0) / (values.length || 1);
+      const sd = Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length || 1)) || 1;
+      return value => (value - mean) / sd;
+    }
+
     function paretoMask2d(rows, xKey, yKey) {
       const indexed = rows.map((row, i) => ({ i, x: row[xKey], y: row[yKey] }))
         .sort((a, b) => b.x - a.x || b.y - a.y);
@@ -1068,6 +1591,87 @@
       `).join("");
     }
 
+    function renderBestCandidate(highlightedDoubles, selectedSingles) {
+      const bestMeasured = [...highlightedDoubles]
+        .filter(row => Number.isFinite(row.measuredDoubleFitness))
+        .sort((a, b) => b.measuredDoubleFitness - a.measuredDoubleFitness)[0];
+      const bestSingle = [...selectedSingles].sort((a, b) => b.fitness - a.fitness)[0];
+      if (!bestMeasured) {
+        el("bestCandidate").innerHTML = `
+          <div>
+            <div class="best-value">No match</div>
+            <div class="best-label">Generated doubles did not match measured validation rows.</div>
+          </div>
+          <div class="best-note">The site still shows selected singles, but the double-mutant validation card needs measured double-mutant rows to identify a top binder.</div>
+        `;
+        return;
+      }
+
+      el("bestCandidate").innerHTML = `
+        <div>
+          <div class="best-value">${escapeHtml(bestMeasured.doubleMutation)}</div>
+          <div class="best-label">${bestMeasured.measuredDoubleFitness.toFixed(2)}x WT binding</div>
+        </div>
+        <div class="best-note">
+          This is the strongest generated double mutant with measured binding in this run.
+          The best selected single was ${escapeHtml(bestSingle?.mutation || "n/a")} at ${formatCell(bestSingle?.fitness)}x WT,
+          so the card makes the recombination payoff visible immediately.
+        </div>
+      `;
+    }
+
+    function renderInterpretations(singles, selected, highlightedDoubles, doubleBackground) {
+      const selectedAboveWt = selected.filter(row => row.fitness > WT_BINDING).length;
+      const selectedPareto = selected.filter(row => row.measuredPareto).length;
+      const bestSelected = [...selected].sort((a, b) => b.fitness - a.fitness)[0];
+      const measuredDoubles = highlightedDoubles.filter(row => Number.isFinite(row.measuredDoubleFitness));
+      const doublesAboveWt = measuredDoubles.filter(row => row.measuredDoubleFitness > WT_BINDING).length;
+      const bestDouble = [...measuredDoubles].sort((a, b) => b.measuredDoubleFitness - a.measuredDoubleFitness)[0];
+      const backgroundPareto = doubleBackground.filter(row => row.validationPareto).length;
+
+      setInterpretation("plot1Interpretation", [
+        `Round 1 selected ${selected.length} LM-plausible singles from ${singles.length} measured single mutants.`,
+        `${selectedAboveWt} of ${selected.length} selected singles beat WT binding; ${selectedPareto} landed on the measured Pareto frontier.`,
+        "Takeaway: ESM plausibility is useful for filtering sequence space, but measured binding and stability decide whether a mutation is actually optimal.",
+      ]);
+
+      setInterpretation("plot2Interpretation", [
+        `The strongest selected single is ${bestSelected?.mutation || "n/a"} at ${formatCell(bestSelected?.fitness)}x WT binding.`,
+        `Because ${selectedPareto} selected singles are Pareto-optimal, the red points show plausible candidates rather than the best measured tradeoff frontier.`,
+        "Use the 2D view for binding-stability interpretation; use the 3D view to see how LM plausibility changes the selected-candidate geometry.",
+      ]);
+
+      setInterpretation("plot4Interpretation", [
+        `${measuredDoubles.length} generated double mutants matched measured validation rows, and ${doublesAboveWt} beat WT binding.`,
+        `The best generated binder is ${bestDouble?.doubleMutation || "n/a"} at ${formatCell(bestDouble?.measuredDoubleFitness)}x WT binding.`,
+        `The blue sheet summarizes ${backgroundPareto} measured Pareto frontier double mutants, showing the boundary the generated candidates are trying to approach.`,
+      ]);
+    }
+
+    function setInterpretation(id, bullets) {
+      el(id).innerHTML = `
+        <h3>Interpretation</h3>
+        <ul>${bullets.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      `;
+    }
+
+    function renderMultiInterpretation(multiMutants, topMulti, maxOrder, limit) {
+      const best = topMulti[0];
+      const orderCounts = multiMutants.reduce((counts, row) => {
+        counts[row.mutationCount] = (counts[row.mutationCount] || 0) + 1;
+        return counts;
+      }, {});
+      const orderText = Object.entries(orderCounts)
+        .map(([order, count]) => `${count} ${order}-mutants`)
+        .join(", ");
+      setInterpretation("multiInterpretation", [
+        `Generated ${multiMutants.length} capped higher-order candidates up to ${maxOrder} mutations; requested cap was ${limit}.`,
+        `Composition: ${orderText || "no higher-order candidates generated"}.`,
+        best ? `Top recommendation is ${best.multiMutation}, ranked by average single binding evidence, additive stability, and additive LM score.` : "No multi-mutant candidates were generated.",
+        "Important: triples/quads are prioritization hypotheses. Their binding is not experimentally measured in this local dataset.",
+      ]);
+    }
+
     function renderTable(id, rows, columns) {
       if (!rows.length) { el(id).innerHTML = "<p class='note'>No rows.</p>"; return; }
       const labels = {
@@ -1081,6 +1685,13 @@
         measuredDoubleFitness: "Measured double binding",
         doubleStabilityScore: "Additive stability score",
         doubleLmScore: "Additive LM score",
+        multiMutation: "Multi-mutant",
+        mutationCount: "# mutations",
+        bindingEvidence: "Avg single binding evidence",
+        additiveStabilityScore: "Additive stability score",
+        additiveLmScore: "Additive LM score",
+        recommendationScore: "Recommendation score",
+        evidenceType: "Evidence type",
       };
       const head = columns.map(c => `<th>${labels[c] || c}</th>`).join("");
       const body = rows.map(row => `<tr>${columns.map(c => `<td>${formatCell(row[c])}</td>`).join("")}</tr>`).join("");
@@ -1109,7 +1720,7 @@
     }
 
     function register3dCanvasEvents() {
-      ["plot1", "plot2", "plot4"].forEach(canvasId => {
+      ["plot1", "plot2", "plot4", "plotMulti"].forEach(canvasId => {
         const canvas = el(canvasId);
         let dragging = false;
         let lastX = 0;
@@ -1126,7 +1737,10 @@
         });
 
         canvas.addEventListener("pointermove", event => {
-          if (!dragging) return;
+          if (!dragging) {
+            updatePointTooltip(canvasId, event);
+            return;
+          }
           const dx = event.clientX - lastX;
           const dy = event.clientY - lastY;
           totalMove += Math.abs(dx) + Math.abs(dy);
@@ -1152,6 +1766,7 @@
         canvas.addEventListener("pointerleave", () => {
           dragging = false;
           canvas.classList.remove("dragging");
+          hidePointTooltip();
         });
 
         canvas.addEventListener("wheel", event => {
@@ -1174,6 +1789,33 @@
       const cfg = plotConfigs.get(canvasId);
       renderMutationDetail(canvasId, target.row, target.kind, cfg);
       if (cfg) drawScatter(canvasId, cfg);
+      openProteinModule(target.row, target.kind, cfg, canvasId);
+    }
+
+    function updatePointTooltip(canvasId, event) {
+      const target = nearestClickablePoint(canvasId, event);
+      if (!target) {
+        hidePointTooltip();
+        return;
+      }
+      const cfg = plotConfigs.get(canvasId);
+      const tooltip = el("pointTooltip");
+      const label = mutationDisplayLabel(target.row, cfg);
+      const kind = target.kind === "pareto" ? "Pareto frontier" : "Selected candidate";
+      tooltip.innerHTML = `
+        <strong>${escapeHtml(label)}</strong>
+        ${escapeHtml(kind)}<br>
+        Binding: ${formatCell(target.row[cfg.x])}<br>
+        Stability: ${formatCell(target.row[cfg.y])}<br>
+        LM score: ${formatCell(target.row[cfg.z])}
+      `;
+      tooltip.style.left = `${event.clientX + 14}px`;
+      tooltip.style.top = `${event.clientY + 14}px`;
+      tooltip.style.display = "block";
+    }
+
+    function hidePointTooltip() {
+      el("pointTooltip").style.display = "none";
     }
 
     function nearestClickablePoint(canvasId, event) {
@@ -1194,7 +1836,9 @@
       if (!detail) return;
       if (!row || !cfg) {
         detail.className = "mutation-detail empty";
-        detail.innerHTML = "Click a red selected point or blue Pareto-frontier point to zoom in and compare its mutated sequence against wild type.";
+        detail.innerHTML = canvasId === "plotMulti"
+          ? "Click a red ranked multi-mutant point to zoom in and compare its mutated sequence against wild type."
+          : "Click a red selected point or blue Pareto-frontier point to zoom in and compare its mutated sequence against wild type.";
         return;
       }
 
@@ -1203,7 +1847,9 @@
       const label = mutationDisplayLabel(row, cfg);
       const pointType = kind === "pareto"
         ? "Blue Pareto frontier point"
-        : (canvasId === "plot4" ? "Red generated double candidate" : "Red selected candidate");
+        : (canvasId === "plotMulti"
+          ? "Red ranked higher-order candidate"
+          : (canvasId === "plot4" ? "Red generated double candidate" : "Red selected candidate"));
       const meta = [
         [cfg.xLabel, row[cfg.x]],
         [cfg.yLabel, row[cfg.y]],
@@ -1272,6 +1918,280 @@
       }).join("");
     }
 
+    function buildGb1Backbone() {
+      const points = [];
+      for (let i = 0; i < WT_SEQUENCE.length; i++) {
+        let x, y, z, ss;
+        if (i <= 7) {
+          ss = "beta";
+          x = -24 + i * 2.5; y = 8; z = Math.sin(i * 0.8) * 1.2;
+        } else if (i <= 13) {
+          ss = "loop";
+          const t = (i - 8) / 5;
+          x = -5 + t * -7; y = 8 - t * 11; z = Math.sin(t * Math.PI) * 5;
+        } else if (i <= 21) {
+          ss = "beta";
+          const t = (i - 14) / 7;
+          x = -12 - t * 13; y = -4; z = 2 + Math.sin(i * 0.8) * 1.2;
+        } else if (i <= 36) {
+          ss = "helix";
+          const t = i - 22;
+          x = -5 + t * 1.7; y = 2.5 + Math.sin(t * 1.35) * 3.4; z = -3 + Math.cos(t * 1.35) * 3.4;
+        } else if (i <= 42) {
+          ss = "loop";
+          const t = (i - 37) / 5;
+          x = 20 - t * 3; y = 0 - t * 10; z = -2 + Math.sin(t * Math.PI) * 4;
+        } else if (i <= 49) {
+          ss = "beta";
+          const t = (i - 43) / 6;
+          x = 17 - t * 16; y = -10; z = 3 + Math.sin(i * 0.8) * 1.1;
+        } else {
+          ss = "beta";
+          const t = (i - 50) / 5;
+          x = 2 + t * 15; y = 11; z = -1 + Math.sin(i * 0.8) * 1.1;
+        }
+        points.push({ index: i, aa: WT_SEQUENCE[i], x, y, z, ss });
+      }
+      return points;
+    }
+
+    function initializeProteinModuleEmpty() {
+      activeModuleSelection = null;
+      el("moduleSummary").innerHTML = [
+        ["Waiting", "Selected candidate"],
+        ["-", "Mutation count"],
+        ["-", "Graph source"],
+        ["-", "Evidence"],
+      ].map(([value, label]) => `<div class="module-stat"><strong>${value}</strong><span>${label}</span></div>`).join("");
+      drawProteinModule();
+    }
+
+    function registerProteinModuleEvents() {
+      ["wtProteinCanvas", "mutProteinCanvas"].forEach(canvasId => {
+        const canvas = el(canvasId);
+        let dragging = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        canvas.addEventListener("pointerdown", event => {
+          dragging = true;
+          lastX = event.clientX;
+          lastY = event.clientY;
+          canvas.classList.add("dragging");
+          canvas.setPointerCapture?.(event.pointerId);
+        });
+
+        canvas.addEventListener("pointermove", event => {
+          if (!dragging) return;
+          const dx = event.clientX - lastX;
+          const dy = event.clientY - lastY;
+          proteinModuleState.rotY += dx * 0.012;
+          proteinModuleState.rotX += dy * 0.012;
+          proteinModuleState.rotX = Math.max(-1.35, Math.min(1.35, proteinModuleState.rotX));
+          lastX = event.clientX;
+          lastY = event.clientY;
+          drawProteinModule();
+        });
+
+        const stopDragging = event => {
+          dragging = false;
+          canvas.classList.remove("dragging");
+          canvas.releasePointerCapture?.(event.pointerId);
+        };
+        canvas.addEventListener("pointerup", stopDragging);
+        canvas.addEventListener("pointercancel", stopDragging);
+        canvas.addEventListener("pointerleave", stopDragging);
+
+        canvas.addEventListener("wheel", event => {
+          event.preventDefault();
+          proteinModuleState.zoom *= event.deltaY < 0 ? 1.1 : 0.9;
+          proteinModuleState.zoom = Math.max(0.55, Math.min(2.8, proteinModuleState.zoom));
+          drawProteinModule();
+        }, { passive: false });
+      });
+
+      document.querySelector("[data-module-reset]").addEventListener("click", () => {
+        proteinModuleState.rotX = -0.48;
+        proteinModuleState.rotY = 0.72;
+        proteinModuleState.zoom = 1.0;
+        drawProteinModule();
+      });
+
+      document.querySelectorAll("[data-protein-action]").forEach(button => {
+        button.addEventListener("click", () => {
+          const action = button.dataset.proteinAction;
+          if (action === "left") proteinModuleState.rotY -= 0.22;
+          if (action === "right") proteinModuleState.rotY += 0.22;
+          if (action === "up") proteinModuleState.rotX -= 0.18;
+          if (action === "down") proteinModuleState.rotX += 0.18;
+          if (action === "zoomIn") proteinModuleState.zoom *= 1.16;
+          if (action === "zoomOut") proteinModuleState.zoom *= 0.86;
+          proteinModuleState.rotX = Math.max(-1.35, Math.min(1.35, proteinModuleState.rotX));
+          proteinModuleState.zoom = Math.max(0.55, Math.min(2.8, proteinModuleState.zoom));
+          drawProteinModule();
+        });
+      });
+    }
+
+    function openProteinModule(row, kind, cfg, canvasId) {
+      if (!row || !cfg) return;
+      const mutations = extractMutations(row, cfg);
+      const applied = applyMutationsToWt(mutations);
+      const label = mutationDisplayLabel(row, cfg);
+      activeModuleSelection = { row, kind, cfg, canvasId, mutations, applied, label };
+      renderProteinModuleSummary();
+      drawProteinModule();
+      switchAppTab("moduleTab");
+    }
+
+    function renderProteinModuleSummary() {
+      if (!activeModuleSelection) return;
+      const { row, cfg, canvasId, mutations, applied, label } = activeModuleSelection;
+      const graphName = canvasId === "plotMulti" ? "Higher-order multi-mutant graph"
+        : canvasId === "plot4" ? "Graph 4 double-mutant validation"
+        : canvasId === "plot2" ? "Graph 2 measured Round-1 validation"
+        : "Graph 1 single-mutant selection";
+      const evidence = canvasId === "plotMulti"
+        ? "Estimated ranking, not measured binding"
+        : "Measured database values";
+      el("moduleStatus").innerHTML = `
+        Showing <strong>${escapeHtml(label)}</strong> from ${escapeHtml(graphName)}.
+        Yellow marks show where the selected mutation changes the displayed WT sequence.
+      `;
+      el("moduleSummary").innerHTML = [
+        [label, "Selected candidate"],
+        [mutations.length, "Mutation count"],
+        [graphName, "Graph source"],
+        [evidence, "Evidence type"],
+      ].map(([value, text]) => `<div class="module-stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(text)}</span></div>`).join("");
+      const chips = mutations.map(m => `<span class="mutation-chip">${escapeHtml(m.wt)}${m.pos}${escapeHtml(m.mut)}</span>`).join("");
+      const metricRows = [
+        [cfg.xLabel, row[cfg.x]],
+        [cfg.yLabel, row[cfg.y]],
+        [cfg.zLabel, row[cfg.z]],
+      ].map(([name, value]) => `<span>${escapeHtml(name)}: ${formatCell(value)}</span>`).join("");
+      const warnings = applied.warnings.length
+        ? `<div class="sequence-note">${applied.warnings.map(escapeHtml).join(" ")}</div>`
+        : "";
+      el("moduleSequenceDetail").innerHTML = `
+        <div class="mutation-title">
+          <strong>${escapeHtml(label)}</strong>
+          <span>Before/after sequence map for selected candidate.</span>
+        </div>
+        <div class="mutation-meta">${metricRows}</div>
+        <div class="mutation-list">${chips || "<span class='mutation-chip'>No parsed mutation label</span>"}</div>
+        <div class="sequence-row">
+          <div class="sequence-label">Original wild type:</div>
+          <code class="sequence-text">${renderSequence(WT_SEQUENCE, applied.changedIndexes)}</code>
+        </div>
+        <div class="sequence-row">
+          <div class="sequence-label">After mutation:</div>
+          <code class="sequence-text">${renderSequence(applied.sequence, applied.changedIndexes)}</code>
+        </div>
+        <div class="sequence-note">The backbone is held fixed so the module highlights mutation location and chemistry. A true structural-effect prediction would require AlphaFold/Rosetta/Molecular Dynamics or experimental structure data.</div>
+        ${warnings}
+      `;
+    }
+
+    function drawProteinModule() {
+      drawProteinCanvas("wtProteinCanvas", false);
+      drawProteinCanvas("mutProteinCanvas", true);
+    }
+
+    function drawProteinCanvas(canvasId, mutated) {
+      const canvas = el(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#f8fbfd";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const selectedIndexes = new Set(activeModuleSelection?.applied.changedIndexes || []);
+      const changedSequence = activeModuleSelection?.applied.sequence || WT_SEQUENCE;
+      const projected = GB1_BACKBONE.map(point => ({
+        ...point,
+        aaShown: mutated ? changedSequence[point.index] : WT_SEQUENCE[point.index],
+        p: projectProteinPoint(point, canvas),
+      }));
+
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (let i = 0; i < projected.length - 1; i++) {
+        const a = projected[i], b = projected[i + 1];
+        ctx.strokeStyle = secondaryColor(a.ss, 0.74);
+        ctx.lineWidth = a.ss === "helix" ? 7 : a.ss === "beta" ? 6 : 4;
+        ctx.beginPath();
+        ctx.moveTo(a.p.x, a.p.y);
+        ctx.lineTo(b.p.x, b.p.y);
+        ctx.stroke();
+      }
+
+      const residueDraw = [...projected].sort((a, b) => a.p.depth - b.p.depth);
+      for (const point of residueDraw) {
+        const changed = selectedIndexes.has(point.index);
+        const radius = changed ? 9.5 : 3.8;
+        ctx.beginPath();
+        ctx.arc(point.p.x, point.p.y, radius * point.p.scale, 0, Math.PI * 2);
+        ctx.fillStyle = changed ? (mutated ? "#f59e0b" : "#fff3a8") : secondaryColor(point.ss, 0.9);
+        ctx.strokeStyle = changed ? "#7c2d12" : "rgba(55, 65, 81, 0.35)";
+        ctx.lineWidth = changed ? 2 : 0.6;
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      for (const point of residueDraw.filter(p => selectedIndexes.has(p.index))) {
+        const mutation = activeModuleSelection?.mutations.find(m => m.pos - 2 === point.index);
+        const label = mutation ? `${mutated ? mutation.mut : mutation.wt}${mutation.pos}` : `${point.aaShown}${point.index + 2}`;
+        ctx.fillStyle = "#111827";
+        ctx.font = "700 13px Segoe UI, Arial";
+        ctx.fillText(label, point.p.x + 10, point.p.y - 8);
+      }
+
+      ctx.fillStyle = "#17202a";
+      ctx.font = "700 18px Segoe UI, Arial";
+      ctx.fillText(mutated ? "After selected mutation" : "Wild type reference", 20, 28);
+      ctx.fillStyle = "#5d6b7a";
+      ctx.font = "12px Segoe UI, Arial";
+      ctx.fillText("GB1 fold map: beta strands blue, helix red, loops gray, selected sites yellow.", 20, 48);
+      if (!activeModuleSelection) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.84)";
+        ctx.fillRect(96, 198, canvas.width - 192, 104);
+        ctx.strokeStyle = "#d7dde5";
+        ctx.strokeRect(96, 198, canvas.width - 192, 104);
+        ctx.fillStyle = "#17202a";
+        ctx.font = "700 17px Segoe UI, Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Select a graph point to load a mutation", canvas.width / 2, 244);
+        ctx.font = "13px Segoe UI, Arial";
+        ctx.fillStyle = "#5d6b7a";
+        ctx.fillText("Run the workflow, then click a red or blue point in Outputs.", canvas.width / 2, 270);
+        ctx.textAlign = "left";
+      }
+    }
+
+    function projectProteinPoint(point, canvas) {
+      const state = proteinModuleState;
+      const cy = Math.cos(state.rotY), sy = Math.sin(state.rotY);
+      const cx = Math.cos(state.rotX), sx = Math.sin(state.rotX);
+      const x1 = point.x * cy + point.z * sy;
+      const z1 = -point.x * sy + point.z * cy;
+      const y1 = point.y * cx - z1 * sx;
+      const z2 = point.y * sx + z1 * cx;
+      const perspective = 850 / (850 + z2 * 12);
+      const scale = 8.3 * state.zoom * perspective;
+      return {
+        x: canvas.width / 2 + x1 * scale,
+        y: canvas.height / 2 - y1 * scale,
+        depth: z2,
+        scale: perspective,
+      };
+    }
+
+    function secondaryColor(ss, alpha = 1) {
+      if (ss === "helix") return `rgba(220, 38, 38, ${alpha})`;
+      if (ss === "beta") return `rgba(37, 99, 235, ${alpha})`;
+      return `rgba(107, 114, 128, ${alpha})`;
+    }
+
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, ch => ({
         "&": "&amp;",
@@ -1283,7 +2203,7 @@
     }
 
     function drawScatter(canvasId, cfg) {
-      if (cfg.z) {
+      if (cfg.z && plotViewModes[canvasId] !== "2d") {
         drawScatter3d(canvasId, cfg);
         return;
       }
@@ -1318,6 +2238,22 @@
       drawOpenPoints(ctx, cfg.pareto, scaleX, scaleY, "#1f77b4", 7);
       drawPoints(ctx, cfg.highlight, scaleX, scaleY, "#d62728", 6.5, true);
       ctx.restore();
+      clickablePointTargets.set(canvasId, [
+        ...cfg.pareto.filter(row => Number.isFinite(row[cfg.x]) && Number.isFinite(row[cfg.y])).map(row => ({
+          x: scaleX(row[cfg.x]),
+          y: scaleY(row[cfg.y]),
+          row,
+          kind: "pareto",
+          hitRadius: 14,
+        })),
+        ...cfg.highlight.filter(row => Number.isFinite(row[cfg.x]) && Number.isFinite(row[cfg.y])).map(row => ({
+          x: scaleX(row[cfg.x]),
+          y: scaleY(row[cfg.y]),
+          row,
+          kind: "highlight",
+          hitRadius: 13,
+        })),
+      ]);
 
       ctx.strokeStyle = "#111";
       ctx.setLineDash([7, 5]);

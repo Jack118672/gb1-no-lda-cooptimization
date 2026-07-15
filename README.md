@@ -1,43 +1,68 @@
-# GB1 No-LDA Co-Optimization Demo
+# GB1 Multi-Mutant Co-Optimization App
 
-This repository contains a browser-based demo for a GB1 protein-variant co-optimization workflow.
+Browser app for a no-LDA GB1 protein-variant co-optimization workflow.
 
-The demo:
+Live site:
+https://jack118672.github.io/gb1-no-lda-cooptimization/
 
-- scores single mutants using ESM/LM plausibility scores,
-- selects Round-1 single-mutant candidates,
-- validates selected candidates against measured GB1 binding and stability-source values,
-- recombines selected singles into Round-2 double mutants,
-- validates generated doubles against measured double-mutant binding data.
+Windows app download:
+https://jack118672.github.io/gb1-no-lda-cooptimization/downloads/GB1_Multi_Mutant_App_Windows.zip
+
+## What The App Does
+
+- Loads packaged GB1 binding, stability, double-mutant, and ESM/LM score CSV files.
+- Scores single mutants using ESM/LM plausibility.
+- Selects Round-1 single-mutant candidates.
+- Validates selected candidates against measured GB1 binding and source-reported stability values.
+- Recombines selected singles into double mutants and checks measured double-mutant binding.
+- Extends beyond doubles into capped triple/quadruple multi-mutant recommendations.
+- Provides an interactive 3D Mutation Module that maps selected mutation sites onto a simplified GB1 fold.
 
 No LDA model is used in this current workflow, and there is intentionally no Graph 3.
 
-## Website
+## Use In A Browser
 
-Open `index.html` in a browser, or use the GitHub Pages link if Pages is enabled for this repository.
+Open the live site:
+https://jack118672.github.io/gb1-no-lda-cooptimization/
 
-## Input files
+Then:
 
-Use the files in `data/`:
+1. Open **1. Inputs / Run**.
+2. Click **Run**.
+3. Open **2. Outputs / Results** to view graphs, tables, and summaries.
+4. Click red or blue graph points to open **3. 3D Module**.
 
-| Website input | File |
+## Download As A Windows App
+
+Download:
+https://jack118672.github.io/gb1-no-lda-cooptimization/downloads/GB1_Multi_Mutant_App_Windows.zip
+
+Then:
+
+1. Extract the zip.
+2. Double-click **GB1 Multi-Mutant App.bat**.
+3. A browser window opens automatically.
+4. Keep the launcher window open while using the app.
+5. Close the launcher window when finished.
+
+The Windows launcher uses PowerShell to serve the app locally, so the browser can load the packaged CSV files.
+
+## Input Files
+
+The app uses the files in `data/`:
+
+| App input | File |
 |---|---|
 | Single-mutant binding CSV | `data/gb1_fitness_singles.csv` |
 | Single-mutant stability CSV | `data/gb1_stability_deltaG.csv` |
 | Double-mutant binding CSV | `data/gb1_fitness_doubles.csv` |
-| Optional ESM/LM scores CSV | `data/gb1_lm_scores.csv` |
+| ESM/LM scores CSV | `data/gb1_lm_scores.csv` |
 
-## Important interpretation notes
+## Important Interpretation Notes
 
 - `lm_score` is a z-scored ESM WT-marginal log-likelihood-ratio. It is a sequence-plausibility score, not measured affinity or stability.
-- Graph x/y positions use measured database values.
+- Graph x/y positions use measured database values when available.
 - The plotted stability value is the source-reported GB1 stability scale used in this project. It should not be relabeled as generic folding deltaG where lower/more negative is always favorable.
 - Double-mutant stability is estimated additively as `stability_score_1 + stability_score_2`.
-
-## Local workflow files
-
-The core workflow used to generate the static outputs is included:
-
-- `run_gb1_no_lda_workflow.py`
-- `score_gb1_esm.py`
-
+- Triple and quadruple multi-mutants are ranked recommendations, not experimentally measured binding claims in the local dataset.
+- The 3D Mutation Module is an interpretive structure map. It highlights mutation positions on a simplified GB1 fold and compares WT vs mutated sequence. It does not run molecular dynamics, docking, or a new folding prediction.
