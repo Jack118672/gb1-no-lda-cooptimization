@@ -495,6 +495,13 @@
     .dot.gray { background: rgba(138,151,163,.45); }
     .dot.red { background: var(--red); border: 1px solid #111; }
     .dot.blue { background: white; border: 3px solid var(--blue); }
+    .dot.wt {
+      width: 13px;
+      height: 11px;
+      border-radius: 2px;
+      background: rgba(245, 158, 11, 0.30);
+      border: 2px solid #b45309;
+    }
 
     @media (max-width: 900px) {
       main { grid-template-columns: 1fr; }
@@ -589,6 +596,7 @@
           <span><span class="dot gray"></span>All labeled single mutants</span>
           <span><span class="dot blue"></span>Measured Pareto frontier</span>
           <span><span class="dot red"></span>LM-plausible selections</span>
+          <span><span class="dot wt"></span>WT binding threshold = 1.0</span>
         </div>
         <div class="graph-help">
           <div class="x"><strong>X-axis</strong>Measured binding fitness. Values above 1.0 beat WT binding.</div>
@@ -612,6 +620,12 @@
         </div>
         <div class="plot-wrap"><canvas id="plot2" width="1100" height="650"></canvas></div>
         <div id="plot2Detail" class="mutation-detail empty"></div>
+        <div class="legend">
+          <span><span class="dot gray"></span>All labeled single mutants</span>
+          <span><span class="dot blue"></span>Measured Pareto frontier</span>
+          <span><span class="dot red"></span>Round-1 selections</span>
+          <span><span class="dot wt"></span>WT binding threshold = 1.0</span>
+        </div>
         <div class="graph-help">
           <div class="x"><strong>X-axis</strong>Measured binding fitness. Values above 1.0 beat WT binding.</div>
           <div class="y"><strong>Y-axis</strong>Source-reported stability score. Larger is treated as more stable in this dataset.</div>
@@ -650,6 +664,7 @@
           <span><span class="dot gray"></span>All double mutants with measured binding + additive stability</span>
           <span><span class="dot blue"></span>Validation Pareto frontier</span>
           <span><span class="dot red"></span>Top no-LDA doubles</span>
+          <span><span class="dot wt"></span>WT binding threshold = 1.0</span>
         </div>
         <div class="graph-help">
           <div class="x"><strong>X-axis</strong>Measured double-mutant binding fitness from the database.</div>
@@ -1372,6 +1387,7 @@
         })));
 
       draw3dAxes(ctx, cfg, bounds, dataBounds, state, center, canvas);
+      drawWtBindingThreshold(ctx, cfg, bounds, state, center);
       for (const point of drawRows) draw3dPoint(ctx, point);
       drawSelectedPointRing(ctx, drawRows, selectedPointByCanvas.get(canvasId));
       label3dHighlights(ctx, drawRows.filter(p => p.kind === "highlight").slice(-7), cfg.highlightLabel);
@@ -1381,7 +1397,7 @@
       ctx.fillText(cfg.title, 76, 28);
       ctx.fillStyle = "#5d6b7a";
       ctx.font = "12px Segoe UI, Arial";
-      ctx.fillText("3D view: drag to rotate, scroll to zoom, reset button restores the starting angle.", 76, 45);
+      ctx.fillText("3D view: drag to rotate, scroll to zoom. Orange plane marks WT binding threshold = 1.0.", 76, 45);
     }
 
     function has3d(row, cfg) {
@@ -1502,6 +1518,35 @@
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
       ctx.stroke();
+    }
+
+    function drawWtBindingThreshold(ctx, cfg, bounds, state, center) {
+      if (WT_BINDING < bounds.xMin || WT_BINDING > bounds.xMax) return;
+      const a = project3d(WT_BINDING, bounds.yMin, bounds.zMin, bounds, state, center);
+      const b = project3d(WT_BINDING, bounds.yMax, bounds.zMin, bounds, state, center);
+      const c = project3d(WT_BINDING, bounds.yMax, bounds.zMax, bounds, state, center);
+      const d = project3d(WT_BINDING, bounds.yMin, bounds.zMax, bounds, state, center);
+
+      ctx.save();
+      ctx.fillStyle = "rgba(245, 158, 11, 0.10)";
+      ctx.strokeStyle = "#b45309";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 5]);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.lineTo(c.x, c.y);
+      ctx.lineTo(d.x, d.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const label = project3d(WT_BINDING, bounds.yMax, bounds.zMax, bounds, state, center);
+      ctx.fillStyle = "#92400e";
+      ctx.font = "700 12px Segoe UI, Arial";
+      ctx.fillText("WT binding = 1.0", label.x + 8, label.y - 8);
+      ctx.restore();
     }
 
     function draw3dPoint(ctx, point) {
