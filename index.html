@@ -1562,31 +1562,12 @@
       if (points.length >= 3) {
         const hull = convexHull2d(points);
         ctx.fillStyle = "rgba(31, 119, 180, 0.15)";
-        ctx.strokeStyle = "rgba(31, 119, 180, 0.62)";
-        ctx.lineWidth = 1.6;
         ctx.beginPath();
         ctx.moveTo(hull[0].x, hull[0].y);
         for (const point of hull.slice(1)) ctx.lineTo(point.x, point.y);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
       }
-
-      const ordered = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
-      ctx.strokeStyle = "rgba(31, 119, 180, 0.38)";
-      ctx.lineWidth = 1;
-      for (let skip = 1; skip <= 3; skip++) {
-        for (let i = 0; i + skip < ordered.length; i++) {
-          drawLine(ctx, ordered[i], ordered[i + skip]);
-        }
-      }
-
-      ctx.strokeStyle = "#1f77b4";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(ordered[0].x, ordered[0].y);
-      for (const point of ordered.slice(1)) ctx.lineTo(point.x, point.y);
-      ctx.stroke();
 
       ctx.restore();
     }
