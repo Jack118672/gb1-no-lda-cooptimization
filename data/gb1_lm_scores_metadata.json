@@ -1,0 +1,11 @@
+{
+  "created": "2026-07-14 19:01:50",
+  "output": "C:\\Users\\jack0\\OneDrive\\Documents\\Final Project - Jack Idea\\gb1_lm_scores.csv",
+  "model": "esm2_t6_8M_UR50D",
+  "device": "cpu",
+  "wt_sequence_binding_table": "QYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTE",
+  "wt_position_start": 2,
+  "scoring": "ESM WT-marginal log-likelihood ratio: log P(mut | WT context) - log P(wt | WT context)",
+  "lm_score": "z-scored esm_wt_marginal_llr; higher means more ESM-plausible",
+  "rows": 1045
+}

@@ -1,0 +1,1002 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GB1 No-LDA Co-Optimization Demo</title>
+  <style>
+    :root {
+      --bg: #f3f7fb;
+      --panel: #ffffff;
+      --ink: #17202a;
+      --muted: #5d6b7a;
+      --line: #d7dde5;
+      --blue: #1f77b4;
+      --red: #d62728;
+      --gray: #8a97a3;
+      --green: #0f8b6f;
+      --amber: #c77900;
+      --purple: #7c3aed;
+      --soft-blue: #eaf4ff;
+      --soft-green: #eaf8f2;
+      --soft-amber: #fff5df;
+      --soft-red: #fff0ef;
+      --soft-purple: #f3edff;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    header {
+      padding: 30px 32px 22px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(120deg, rgba(31,119,180,.14), rgba(15,139,111,.10) 46%, rgba(199,121,0,.12)),
+        #fff;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+      max-width: 980px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 5px 10px;
+      border: 1px solid rgba(31,119,180,.24);
+      border-radius: 999px;
+      background: rgba(255,255,255,.72);
+      color: #155b87;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+      max-width: 1080px;
+    }
+
+    .workflow-card {
+      border: 1px solid rgba(23,32,42,.08);
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(255,255,255,.84);
+      box-shadow: 0 8px 18px rgba(23,32,42,.05);
+    }
+
+    .workflow-card strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    .workflow-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .workflow-card.score { border-top: 4px solid var(--purple); }
+    .workflow-card.select { border-top: 4px solid var(--amber); }
+    .workflow-card.validate { border-top: 4px solid var(--blue); }
+    .workflow-card.recombine { border-top: 4px solid var(--green); }
+
+    main {
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 18px;
+      padding: 18px;
+    }
+
+    aside, section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    aside {
+      padding: 18px;
+      height: fit-content;
+      position: sticky;
+      top: 16px;
+    }
+
+    section {
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-weight: 650;
+      font-size: 13px;
+    }
+
+    input[type="file"], input[type="number"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fff;
+    }
+
+    input[type="number"] {
+      height: 36px;
+      font-size: 14px;
+    }
+
+    button {
+      width: 100%;
+      height: 40px;
+      margin-top: 16px;
+      border: 0;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #17202a, #245b7a);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .note {
+      margin-top: 14px;
+      padding: 10px 12px;
+      background: #f0f4f8;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .note.good {
+      background: var(--soft-green);
+      border-color: #b9e2cf;
+      color: #1f5b48;
+    }
+
+    .note.warn {
+      background: var(--soft-amber);
+      border-color: #f1d18f;
+      color: #6b4b08;
+    }
+
+    .file-hint {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .section-title h2 {
+      margin: 0 0 4px;
+    }
+
+    .section-title p {
+      font-size: 13px;
+      max-width: 760px;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 76px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .badge.blue { background: var(--blue); }
+    .badge.green { background: var(--green); }
+    .badge.amber { background: var(--amber); }
+    .badge.purple { background: var(--purple); }
+
+    .graph-help {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .graph-help div {
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .graph-help strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+    }
+
+    .graph-help .x { background: var(--soft-blue); }
+    .graph-help .y { background: var(--soft-green); }
+    .graph-help .red { background: var(--soft-red); }
+
+    .status {
+      margin-top: 12px;
+      min-height: 36px;
+      font-size: 13px;
+      color: var(--muted);
+      white-space: pre-wrap;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      border-top: 4px solid var(--blue);
+    }
+
+    .metric:nth-child(2n) { border-top-color: var(--green); }
+    .metric:nth-child(3n) { border-top-color: var(--amber); }
+    .metric:nth-child(4n) { border-top-color: var(--purple); }
+
+    .metric .value {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .metric .label {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .plot-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 12px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      min-width: 760px;
+      height: 520px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f3f6fa;
+      font-size: 12px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+
+    .dot.gray { background: rgba(138,151,163,.45); }
+    .dot.red { background: var(--red); border: 1px solid #111; }
+    .dot.blue { background: white; border: 3px solid var(--blue); }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      aside { position: static; }
+      .metrics { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+      .hero-grid, .graph-help { grid-template-columns: 1fr; }
+      .section-title { display: block; }
+      .badge { margin-bottom: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">No-LDA GB1 workflow</div>
+    <h1>GB1 No-LDA Co-Optimization Demo</h1>
+    <p>
+      Upload the CSV inputs from the package. The page scores single mutations with ESM/LM plausibility,
+      selects Round-1 candidates, validates them against measured binding and stability values, then
+      recombines selected singles into Round-2 double mutants. No LDA model or graph 3 is used.
+    </p>
+    <div class="hero-grid">
+      <div class="workflow-card score"><strong>1. Score</strong><span>Use uploaded ESM `lm_score` values, or a fallback proxy if ESM scores are missing.</span></div>
+      <div class="workflow-card select"><strong>2. Select</strong><span>Pick the top Round-1 single mutants by LM plausibility.</span></div>
+      <div class="workflow-card validate"><strong>3. Validate</strong><span>Plot selected mutations using measured binding and stability data.</span></div>
+      <div class="workflow-card recombine"><strong>4. Recombine</strong><span>Create double mutants from selected singles and check measured binding.</span></div>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <h2>Inputs</h2>
+      <label for="singleFitness">Single-mutant binding CSV</label>
+      <input id="singleFitness" type="file" accept=".csv">
+      <span class="file-hint">Use `gb1_fitness_singles.csv`. Provides measured binding fitness.</span>
+
+      <label for="singleStability">Single-mutant stability CSV</label>
+      <input id="singleStability" type="file" accept=".csv">
+      <span class="file-hint">Use `gb1_stability_deltaG.csv`. Provides the source stability score.</span>
+
+      <label for="doubleFitness">Double-mutant binding CSV</label>
+      <input id="doubleFitness" type="file" accept=".csv">
+      <span class="file-hint">Use `gb1_fitness_doubles.csv`. Used only for Round-2 validation.</span>
+
+      <label for="lmScores">Optional ESM/LM scores CSV</label>
+      <input id="lmScores" type="file" accept=".csv">
+      <span class="file-hint">Use `gb1_lm_scores.csv` for the current valid ESM2-backed run.</span>
+
+      <label for="candidateCount">Round-1 candidates</label>
+      <input id="candidateCount" type="number" min="2" max="80" value="20">
+      <span class="file-hint">How many top LM-plausible single mutants to carry into Round 2.</span>
+
+      <button id="runBtn">Run</button>
+      <div id="status" class="status">Waiting for CSV files.</div>
+
+      <div class="note good">
+        Recommended: upload `gb1_lm_scores.csv` so the page uses the current ESM2-backed `lm_score` values.
+      </div>
+
+      <div class="note warn">
+        Stability note: this demo uses the source-reported GB1 stability scale from the package.
+        It does not mean generic folding reaction deltaG where lower/more negative is favorable.
+      </div>
+    </aside>
+
+    <div>
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Run Summary</h2>
+            <p>These cards tell you how many variants were loaded, selected, generated, and validated.</p>
+          </div>
+          <span class="badge purple">Overview</span>
+        </div>
+        <div id="metrics" class="metrics"></div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Single-Mutant Selection Map</h2>
+            <p>Graph 1 answers: after scoring singles by LM plausibility, where do the selected mutations land on the measured binding/stability landscape?</p>
+          </div>
+          <span class="badge amber">Graph 1</span>
+        </div>
+        <div class="plot-wrap"><canvas id="plot1" width="1100" height="650"></canvas></div>
+        <div class="legend">
+          <span><span class="dot gray"></span>All labeled single mutants</span>
+          <span><span class="dot blue"></span>Measured Pareto frontier</span>
+          <span><span class="dot red"></span>LM-plausible selections</span>
+        </div>
+        <div class="graph-help">
+          <div class="x"><strong>X-axis</strong>Measured binding fitness. Values above 1.0 beat WT binding.</div>
+          <div class="y"><strong>Y-axis</strong>Source-reported stability score. Larger is treated as more stable in this dataset.</div>
+          <div class="red"><strong>Red points</strong>Mutations selected because their `lm_score` was high.</div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Measured Round-1 Validation</h2>
+            <p>Graph 2 answers: did the LM-selected single mutants actually improve measured binding and/or stability compared with the full measured dataset?</p>
+          </div>
+          <span class="badge blue">Graph 2</span>
+        </div>
+        <div class="plot-wrap"><canvas id="plot2" width="1100" height="650"></canvas></div>
+        <div class="note">This graph uses measured database values only. It does not use LDA or a trained predictor.</div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Selected Round-1 Candidate Table</h2>
+            <p>The table lists the top LM-plausible single mutants and whether each beats WT binding.</p>
+          </div>
+          <span class="badge amber">Round 1</span>
+        </div>
+        <div id="round1Table" class="table-wrap"></div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Double-Mutant Recombination Validation</h2>
+            <p>Graph 4 answers: after recombining selected singles, where do generated double mutants land against the measured double-mutant background?</p>
+          </div>
+          <span class="badge green">Graph 4</span>
+        </div>
+        <div class="plot-wrap"><canvas id="plot4" width="1100" height="650"></canvas></div>
+        <div class="legend">
+          <span><span class="dot gray"></span>All double mutants with measured binding + additive stability</span>
+          <span><span class="dot blue"></span>Validation Pareto frontier</span>
+          <span><span class="dot red"></span>Top no-LDA doubles</span>
+        </div>
+        <div class="graph-help">
+          <div class="x"><strong>X-axis</strong>Measured double-mutant binding fitness from the database.</div>
+          <div class="y"><strong>Y-axis</strong>Additive stability score: stability score 1 + stability score 2.</div>
+          <div class="red"><strong>Red points</strong>Generated double mutants made from selected Round-1 singles.</div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Highlighted Round-2 Double-Mutant Table</h2>
+            <p>These are the generated double mutants highlighted by the no-LDA workflow.</p>
+          </div>
+          <span class="badge green">Round 2</span>
+        </div>
+        <div id="round2Table" class="table-wrap"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const HYDROPATHY = {A:1.8,C:2.5,D:-3.5,E:-3.5,F:2.8,G:-0.4,H:-3.2,I:4.5,K:-3.9,L:3.8,M:1.9,N:-3.5,P:-1.6,Q:-3.5,R:-4.5,S:-0.8,T:-0.7,V:4.2,W:-0.9,Y:-1.3};
+    const VOLUME = {A:88.6,C:108.5,D:111.1,E:138.4,F:189.9,G:60.1,H:153.2,I:166.7,K:168.6,L:166.7,M:162.9,N:114.1,P:112.7,Q:143.8,R:173.4,S:89.0,T:116.1,V:140.0,W:227.8,Y:193.6};
+    const CHARGE = {A:0,C:0,D:-1,E:-1,F:0,G:0,H:0.1,I:0,K:1,L:0,M:0,N:0,P:0,Q:0,R:1,S:0,T:0,V:0,W:0,Y:0};
+    const WT_BINDING = 1.0;
+    const BLOSUM_TEXT = `
+       A  R  N  D  C  Q  E  G  H  I  L  K  M  F  P  S  T  W  Y  V
+    A  4 -1 -2 -2  0 -1 -1  0 -2 -1 -1 -1 -1 -2 -1  1  0 -3 -2  0
+    R -1  5  0 -2 -3  1  0 -2  0 -3 -2  2 -1 -3 -2 -1 -1 -3 -2 -3
+    N -2  0  6  1 -3  0  0  0  1 -3 -3  0 -2 -3 -2  1  0 -4 -2 -3
+    D -2 -2  1  6 -3  0  2 -1 -1 -3 -4 -1 -3 -3 -1  0 -1 -4 -3 -3
+    C  0 -3 -3 -3  9 -3 -4 -3 -3 -1 -1 -3 -1 -2 -3 -1 -1 -2 -2 -1
+    Q -1  1  0  0 -3  5  2 -2  0 -3 -2  1  0 -3 -1  0 -1 -2 -1 -2
+    E -1  0  0  2 -4  2  5 -2  0 -3 -3  1 -2 -3 -1  0 -1 -3 -2 -2
+    G  0 -2  0 -1 -3 -2 -2  6 -2 -4 -4 -2 -3 -3 -2  0 -2 -2 -3 -3
+    H -2  0  1 -1 -3  0  0 -2  8 -3 -3 -1 -2 -1 -2 -1 -2 -2  2 -3
+    I -1 -3 -3 -3 -1 -3 -3 -4 -3  4  2 -3  1  0 -3 -2 -1 -3 -1  3
+    L -1 -2 -3 -4 -1 -2 -3 -4 -3  2  4 -2  2  0 -3 -2 -1 -2 -1  1
+    K -1  2  0 -1 -3  1  1 -2 -1 -3 -2  5 -1 -3 -1  0 -1 -3 -2 -2
+    M -1 -1 -2 -3 -1  0 -2 -3 -2  1  2 -1  5  0 -2 -1 -1 -1 -1  1
+    F -2 -3 -3 -3 -2 -3 -3 -3 -1  0  0 -3  0  6 -4 -2 -2  1  3 -1
+    P -1 -2 -2 -1 -3 -1 -1 -2 -2 -3 -3 -1 -2 -4  7 -1 -1 -4 -3 -2
+    S  1 -1  1  0 -1  0  0  0 -1 -2 -2  0 -1 -2 -1  4  1 -3 -2 -2
+    T  0 -1  0 -1 -1 -1 -1 -2 -2 -1 -1 -1 -1 -2 -1  1  5 -2 -2  0
+    W -3 -3 -4 -4 -2 -2 -3 -2 -2 -3 -2 -3 -1  1 -4 -3 -2 11  2 -3
+    Y -2 -2 -2 -3 -2 -1 -2 -3  2 -1 -1 -2 -1  3 -3 -2 -2  2  7 -1
+    V  0 -3 -3 -3 -1 -2 -2 -3 -3  3  1 -2  1 -1 -2 -2  0 -3 -1  4`;
+
+    const BLOSUM = parseBlosum(BLOSUM_TEXT);
+    const el = id => document.getElementById(id);
+
+    initializeEmptyState();
+
+    el("runBtn").addEventListener("click", async () => {
+      try {
+        setStatus("Reading CSV files...");
+        const singleFitness = await readCsvFile(el("singleFitness").files[0], "single-mutant binding");
+        const singleStability = await readCsvFile(el("singleStability").files[0], "single-mutant stability");
+        const doubleFitness = await readCsvFile(el("doubleFitness").files[0], "double-mutant binding");
+        const lmScores = el("lmScores").files[0]
+          ? await readCsvFile(el("lmScores").files[0], "optional ESM/LM scores")
+          : null;
+        const targetN = Math.max(2, Number(el("candidateCount").value || 20));
+
+        setStatus("Scoring single mutants and calculating Pareto front...");
+        const singles = buildSingles(singleFitness, singleStability, lmScores);
+        const selected = selectTopLm(singles, targetN);
+
+        setStatus("Generating double mutants and validation background...");
+        const generatedDoubles = buildGeneratedDoubles(selected, doubleFitness);
+        const highlightedDoubles = generatedDoubles
+          .filter(row => Number.isFinite(row.measuredDoubleFitness))
+          .sort((a, b) => b.doubleLmScore - a.doubleLmScore || b.measuredDoubleFitness - a.measuredDoubleFitness)
+          .slice(0, 30);
+        const doubleBackground = buildDoubleBackground(singles, doubleFitness);
+
+        renderMetrics(singles, selected, generatedDoubles, doubleBackground);
+        renderTable("round1Table", selected.slice(0, 30), ["mutation", "fitness", "stabilityScore", "lmScore", "measuredPareto", "bindingImprovesVsWt"]);
+        renderTable("round2Table", highlightedDoubles.slice(0, 30), ["doubleMutation", "measuredDoubleFitness", "doubleStabilityScore", "doubleLmScore", "bindingImprovesVsWt"]);
+
+        plotScatter("plot1", {
+          title: "Graph 1 - Single-mutant selection map",
+          xLabel: "Measured GB1 IgG-Fc binding fitness",
+          yLabel: "Source-reported stability score",
+          background: singles,
+          pareto: singles.filter(row => row.measuredPareto),
+          highlight: selected,
+          x: "fitness",
+          y: "stabilityScore",
+          highlightLabel: "mutation",
+        });
+
+        plotScatter("plot2", {
+          title: "Graph 2 - Measured Round-1 validation",
+          xLabel: "Measured GB1 IgG-Fc binding fitness",
+          yLabel: "Source-reported stability score",
+          background: singles,
+          pareto: singles.filter(row => row.measuredPareto),
+          highlight: selected,
+          x: "fitness",
+          y: "stabilityScore",
+          highlightLabel: "mutation",
+        });
+
+        plotScatter("plot4", {
+          title: "Graph 4 - Double-mutant recombination validation",
+          xLabel: "Measured double-mutant GB1 binding fitness",
+          yLabel: "Additive stability score 1 + score 2",
+          background: doubleBackground,
+          pareto: doubleBackground.filter(row => row.validationPareto),
+          highlight: highlightedDoubles,
+          x: "measuredDoubleFitness",
+          y: "doubleStabilityScore",
+          highlightLabel: "doubleMutation",
+          maxBackgroundDraw: 30000,
+        });
+
+        setStatus("Done. Graph 1, Graph 2, and Graph 4 are rendered below. Graph 3 was the old LDA branch and is intentionally not part of this no-LDA workflow.");
+      } catch (err) {
+        console.error(err);
+        setStatus("Error: " + err.message);
+      }
+    });
+
+    function setStatus(text) {
+      el("status").textContent = text;
+    }
+
+    function initializeEmptyState() {
+      el("metrics").innerHTML = [
+        ["Upload", "3 required CSVs"],
+        ["Optional", "ESM lm_score CSV"],
+        ["Then click", "Run no-LDA workflow"],
+        ["Result", "Graphs 1, 2, and 4"],
+      ].map(([value, label]) => `
+        <div class="metric"><div class="value">${value}</div><div class="label">${label}</div></div>
+      `).join("");
+      drawEmptyPlot("plot1", "Graph 1 will show selected single mutants after you run the workflow.");
+      drawEmptyPlot("plot2", "Graph 2 will validate selected singles using measured binding and stability.");
+      drawEmptyPlot("plot4", "Graph 4 will show generated double mutants after Round 2.");
+      el("round1Table").innerHTML = "<p class='note'>Run the workflow to see the selected Round-1 candidates.</p>";
+      el("round2Table").innerHTML = "<p class='note'>Run the workflow to see highlighted Round-2 double mutants.</p>";
+    }
+
+    function drawEmptyPlot(canvasId, message) {
+      const canvas = el(canvasId);
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#d7dde5";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(76, 46, canvas.width - 104, canvas.height - 118);
+      ctx.fillStyle = "#f3f7fb";
+      ctx.fillRect(180, 230, canvas.width - 360, 150);
+      ctx.strokeStyle = "#d7dde5";
+      ctx.strokeRect(180, 230, canvas.width - 360, 150);
+      ctx.fillStyle = "#17202a";
+      ctx.font = "700 22px Segoe UI, Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("Waiting for input data", canvas.width / 2, 285);
+      ctx.font = "15px Segoe UI, Arial";
+      ctx.fillStyle = "#5d6b7a";
+      ctx.fillText(message, canvas.width / 2, 320);
+      ctx.fillText("Upload the CSV files on the left, then click Run no-LDA workflow.", canvas.width / 2, 348);
+      ctx.textAlign = "left";
+    }
+
+    async function readCsvFile(file, label) {
+      if (!file) throw new Error(`Missing ${label} CSV.`);
+      const text = await file.text();
+      return parseCsv(text);
+    }
+
+    function parseCsv(text) {
+      const rows = [];
+      let row = [], cell = "", quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i], next = text[i + 1];
+        if (quoted) {
+          if (ch === '"' && next === '"') { cell += '"'; i++; }
+          else if (ch === '"') quoted = false;
+          else cell += ch;
+        } else {
+          if (ch === '"') quoted = true;
+          else if (ch === ",") { row.push(cell); cell = ""; }
+          else if (ch === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+          else if (ch !== "\r") cell += ch;
+        }
+      }
+      if (cell.length || row.length) { row.push(cell); rows.push(row); }
+      const headers = rows.shift().map(h => h.trim());
+      return rows.filter(r => r.length === headers.length).map(r => Object.fromEntries(headers.map((h, i) => [h, r[i]])));
+    }
+
+    function parseBlosum(text) {
+      const lines = text.trim().split(/\n+/).map(line => line.trim().split(/\s+/));
+      const headers = lines[0];
+      const scores = {};
+      for (const parts of lines.slice(1)) {
+        const row = parts[0];
+        headers.forEach((col, i) => scores[`${row}:${col}`] = Number(parts[i + 1]));
+      }
+      return scores;
+    }
+
+    function mutationLabel(pos, wt, mut) {
+      return `${wt}${Number(pos)}${mut}`;
+    }
+
+    function keySingle(row) {
+      return `${Number(row.pos)}|${row.wt}|${row.mut}`;
+    }
+
+    function keyDouble(row) {
+      return `${Number(row.pos1)}|${row.mut1}|${Number(row.pos2)}|${row.mut2}`;
+    }
+
+    function lmProxy(row) {
+      const wt = row.wt, mut = row.mut;
+      const substitution = (BLOSUM[`${wt}:${mut}`] ?? -4) / 11.0;
+      const hydro = 1.0 - Math.abs(HYDROPATHY[mut] - HYDROPATHY[wt]) / 9.0;
+      const volume = 1.0 - Math.abs(VOLUME[mut] - VOLUME[wt]) / 200.0;
+      const charge = 1.0 - Math.abs(CHARGE[mut] - CHARGE[wt]) / 2.0;
+      return 0.50 * substitution + 0.25 * hydro + 0.15 * volume + 0.10 * charge;
+    }
+
+    function buildSingles(fitnessRows, stabilityRows, lmRows) {
+      const stabilityByKey = new Map(stabilityRows.map(r => [keySingle(r), Number(r.ddg)]));
+      const lmByMutation = lmRows
+        ? new Map(lmRows.map(r => [r.mutation, Number(r.lm_score)]).filter(([, score]) => Number.isFinite(score)))
+        : null;
+      const merged = [];
+      for (const row of fitnessRows) {
+        const stability = stabilityByKey.get(keySingle(row));
+        const fitness = Number(row.fitness);
+        if (!Number.isFinite(stability) || !Number.isFinite(fitness)) continue;
+        merged.push({
+          pos: Number(row.pos),
+          wt: row.wt,
+          mut: row.mut,
+          mutation: mutationLabel(row.pos, row.wt, row.mut),
+          fitness,
+          stabilityScore: stability,
+        });
+      }
+      if (lmByMutation) {
+        let missing = 0;
+        for (const row of merged) {
+          const score = lmByMutation.get(row.mutation);
+          if (Number.isFinite(score)) row.lmScore = score;
+          else { row.lmScore = lmProxy(row); missing += 1; }
+        }
+        merged.lmScoreSource = missing
+          ? `Uploaded ESM/LM scores with ${missing} proxy fallbacks`
+          : "Uploaded ESM/LM scores";
+      } else {
+        const raw = merged.map(lmProxy);
+        const mean = raw.reduce((a, b) => a + b, 0) / raw.length;
+        const sd = Math.sqrt(raw.reduce((a, b) => a + (b - mean) ** 2, 0) / raw.length) || 1;
+        merged.forEach((row, i) => row.lmScore = (raw[i] - mean) / sd);
+        merged.lmScoreSource = "BLOSUM/hydropathy/volume/charge proxy";
+      }
+      const mask = paretoMask2d(merged, "fitness", "stabilityScore");
+      merged.forEach((row, i) => row.measuredPareto = mask[i]);
+      return merged;
+    }
+
+    function selectTopLm(singles, n) {
+      const sorted = [...singles].sort((a, b) => b.lmScore - a.lmScore);
+      const threshold = sorted[Math.min(n, sorted.length) - 1].lmScore;
+      return sorted.filter(row => row.lmScore >= threshold).map(row => ({
+        ...row,
+        bindingImprovesVsWt: row.fitness > WT_BINDING,
+      }));
+    }
+
+    function buildGeneratedDoubles(selected, doubleRows) {
+      const doubleByKey = new Map();
+      for (const row of doubleRows) {
+        const value = Number(row.fitness);
+        if (Number.isFinite(value)) doubleByKey.set(keyDouble(row), value);
+      }
+      const rows = [];
+      for (let i = 0; i < selected.length; i++) {
+        for (let j = i + 1; j < selected.length; j++) {
+          let a = selected[i], b = selected[j];
+          if (a.pos === b.pos) continue;
+          if (a.pos > b.pos) [a, b] = [b, a];
+          const measured = doubleByKey.get(`${a.pos}|${a.mut}|${b.pos}|${b.mut}`);
+          rows.push({
+            doubleMutation: `${a.mutation}+${b.mutation}`,
+            measuredDoubleFitness: measured,
+            doubleStabilityScore: a.stabilityScore + b.stabilityScore,
+            doubleLmScore: a.lmScore + b.lmScore,
+            bindingImprovesVsWt: Number.isFinite(measured) ? measured > WT_BINDING : false,
+          });
+        }
+      }
+      return rows;
+    }
+
+    function buildDoubleBackground(singles, doubleRows) {
+      const singleStability = new Map(singles.map(row => [`${row.pos}|${row.mut}`, row.stabilityScore]));
+      const out = [];
+      for (const row of doubleRows) {
+        const fit = Number(row.fitness);
+        const s1 = singleStability.get(`${Number(row.pos1)}|${row.mut1}`);
+        const s2 = singleStability.get(`${Number(row.pos2)}|${row.mut2}`);
+        if (!Number.isFinite(fit) || !Number.isFinite(s1) || !Number.isFinite(s2)) continue;
+        out.push({
+          measuredDoubleFitness: fit,
+          doubleStabilityScore: s1 + s2,
+        });
+      }
+      const mask = paretoMask2d(out, "measuredDoubleFitness", "doubleStabilityScore");
+      out.forEach((row, i) => row.validationPareto = mask[i]);
+      return out;
+    }
+
+    function paretoMask2d(rows, xKey, yKey) {
+      const indexed = rows.map((row, i) => ({ i, x: row[xKey], y: row[yKey] }))
+        .sort((a, b) => b.x - a.x || b.y - a.y);
+      const keep = Array(rows.length).fill(false);
+      let bestY = -Infinity;
+      let k = 0;
+      while (k < indexed.length) {
+        const x = indexed[k].x;
+        let group = [];
+        while (k < indexed.length && indexed[k].x === x) group.push(indexed[k++]);
+        let maxY = -Infinity;
+        for (const point of group) if (point.y > maxY) maxY = point.y;
+        if (maxY > bestY) group.filter(p => p.y === maxY).forEach(p => keep[p.i] = true);
+        bestY = Math.max(bestY, maxY);
+      }
+      return keep;
+    }
+
+    function renderMetrics(singles, selected, generatedDoubles, doubleBackground) {
+      const metrics = [
+        ["Singles merged", singles.length],
+        ["Round-1 selected", selected.length],
+        ["Singles above WT binding", singles.filter(r => r.fitness > WT_BINDING).length],
+        ["LM score source", singles.lmScoreSource || "unknown"],
+        ["Generated doubles", generatedDoubles.length],
+        ["Generated doubles with measured binding", generatedDoubles.filter(r => Number.isFinite(r.measuredDoubleFitness)).length],
+        ["Double validation rows", doubleBackground.length],
+        ["Doubles above WT binding", doubleBackground.filter(r => r.measuredDoubleFitness > WT_BINDING).length],
+        ["LDA used", "No"],
+      ];
+      el("metrics").innerHTML = metrics.map(([label, value]) => `
+        <div class="metric"><div class="value">${value.toLocaleString?.() ?? value}</div><div class="label">${label}</div></div>
+      `).join("");
+    }
+
+    function renderTable(id, rows, columns) {
+      if (!rows.length) { el(id).innerHTML = "<p class='note'>No rows.</p>"; return; }
+      const labels = {
+        mutation: "Mutation",
+        fitness: "Measured binding",
+        stabilityScore: "Stability score",
+        lmScore: "LM plausibility score",
+        measuredPareto: "On measured Pareto frontier?",
+        bindingImprovesVsWt: "Beats WT binding?",
+        doubleMutation: "Double mutant",
+        measuredDoubleFitness: "Measured double binding",
+        doubleStabilityScore: "Additive stability score",
+        doubleLmScore: "Additive LM score",
+      };
+      const head = columns.map(c => `<th>${labels[c] || c}</th>`).join("");
+      const body = rows.map(row => `<tr>${columns.map(c => `<td>${formatCell(row[c])}</td>`).join("")}</tr>`).join("");
+      el(id).innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    }
+
+    function formatCell(value) {
+      if (typeof value === "number") return Number.isInteger(value) ? value : value.toFixed(4);
+      if (typeof value === "boolean") return value ? "yes" : "no";
+      if (value === undefined || value === null) return "";
+      return String(value);
+    }
+
+    function plotScatter(canvasId, cfg) {
+      const canvas = el(canvasId);
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const pad = { left: 76, right: 28, top: 46, bottom: 72 };
+      const plotW = canvas.width - pad.left - pad.right;
+      const plotH = canvas.height - pad.top - pad.bottom;
+      const all = [...cfg.background, ...cfg.pareto, ...cfg.highlight].filter(p => Number.isFinite(p[cfg.x]) && Number.isFinite(p[cfg.y]));
+      const bounds = getBounds(all, cfg.x, cfg.y);
+      const xMin = Math.min(0, bounds.xMin);
+      const xMax = bounds.xMax;
+      const yMin = bounds.yMin;
+      const yMax = bounds.yMax;
+      const xPad = (xMax - xMin) * 0.06 || 1;
+      const yPad = (yMax - yMin) * 0.08 || 1;
+      const scaleX = x => pad.left + ((x - (xMin - xPad)) / ((xMax + xPad) - (xMin - xPad))) * plotW;
+      const scaleY = y => pad.top + plotH - ((y - (yMin - yPad)) / ((yMax + yPad) - (yMin - yPad))) * plotH;
+
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawGrid(ctx, pad, plotW, plotH);
+      drawAxes(ctx, pad, plotW, plotH, cfg, xMin - xPad, xMax + xPad, yMin - yPad, yMax + yPad);
+
+      drawPoints(ctx, sampleRows(cfg.background, cfg.maxBackgroundDraw || 50000), scaleX, scaleY, "rgba(138,151,163,.24)", 2.2, false);
+      drawOpenPoints(ctx, cfg.pareto, scaleX, scaleY, "#1f77b4", 7);
+      drawPoints(ctx, cfg.highlight, scaleX, scaleY, "#d62728", 6.5, true);
+
+      ctx.strokeStyle = "#111";
+      ctx.setLineDash([7, 5]);
+      const wtX = scaleX(WT_BINDING);
+      ctx.beginPath();
+      ctx.moveTo(wtX, pad.top);
+      ctx.lineTo(wtX, pad.top + plotH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = "#17202a";
+      ctx.font = "18px Segoe UI, Arial";
+      ctx.fillText(cfg.title, pad.left, 28);
+
+      ctx.font = "11px Segoe UI, Arial";
+      cfg.highlight.slice(0, 5).forEach(row => {
+        ctx.fillText(String(row[cfg.highlightLabel] || ""), scaleX(row[cfg.x]) + 7, scaleY(row[cfg.y]) - 7);
+      });
+    }
+
+    function getBounds(rows, xKey, yKey) {
+      let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+      for (const row of rows) {
+        const x = row[xKey];
+        const y = row[yKey];
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        if (x < xMin) xMin = x;
+        if (x > xMax) xMax = x;
+        if (y < yMin) yMin = y;
+        if (y > yMax) yMax = y;
+      }
+      if (!Number.isFinite(xMin)) return { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
+      return { xMin, xMax, yMin, yMax };
+    }
+
+    function sampleRows(rows, max) {
+      if (rows.length <= max) return rows;
+      const step = rows.length / max;
+      const sampled = [];
+      for (let i = 0; i < max; i++) sampled.push(rows[Math.floor(i * step)]);
+      return sampled;
+    }
+
+    function drawGrid(ctx, pad, w, h) {
+      ctx.strokeStyle = "#d7dde5";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 5; i++) {
+        const x = pad.left + (w * i / 5);
+        const y = pad.top + (h * i / 5);
+        ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + w, y); ctx.stroke();
+      }
+    }
+
+    function drawAxes(ctx, pad, w, h, cfg, xMin, xMax, yMin, yMax) {
+      ctx.strokeStyle = "#17202a";
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(pad.left, pad.top, w, h);
+      ctx.fillStyle = "#17202a";
+      ctx.font = "12px Segoe UI, Arial";
+      for (let i = 0; i <= 5; i++) {
+        const x = pad.left + (w * i / 5);
+        const y = pad.top + h - (h * i / 5);
+        ctx.fillText((xMin + (xMax - xMin) * i / 5).toFixed(1), x - 10, pad.top + h + 20);
+        ctx.fillText((yMin + (yMax - yMin) * i / 5).toFixed(1), 18, y + 4);
+      }
+      ctx.font = "14px Segoe UI, Arial";
+      ctx.fillText(cfg.xLabel, pad.left + w / 2 - 150, pad.top + h + 52);
+      ctx.save();
+      ctx.translate(20, pad.top + h / 2 + 150);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(cfg.yLabel, 0, 0);
+      ctx.restore();
+    }
+
+    function drawPoints(ctx, rows, scaleX, scaleY, color, radius, outline) {
+      ctx.fillStyle = color;
+      ctx.strokeStyle = "#111";
+      ctx.lineWidth = 1;
+      for (const row of rows) {
+        ctx.beginPath();
+        ctx.arc(scaleX(row.fitness ?? row.measuredDoubleFitness), scaleY(row.stabilityScore ?? row.doubleStabilityScore), radius, 0, Math.PI * 2);
+        ctx.fill();
+        if (outline) ctx.stroke();
+      }
+    }
+
+    function drawOpenPoints(ctx, rows, scaleX, scaleY, color, radius) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.6;
+      for (const row of rows) {
+        ctx.beginPath();
+        ctx.arc(scaleX(row.fitness ?? row.measuredDoubleFitness), scaleY(row.stabilityScore ?? row.doubleStabilityScore), radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+  </script>
+</body>
+</html>
