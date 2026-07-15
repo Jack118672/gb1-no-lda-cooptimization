@@ -492,7 +492,7 @@
       vertical-align: -1px;
     }
 
-    .dot.gray { background: rgba(17,24,39,.88); }
+    .dot.gray { background: rgba(138,151,163,.45); }
     .dot.red { background: var(--red); border: 1px solid #111; }
     .dot.blue { background: white; border: 3px solid var(--blue); }
     .dot.wt {
@@ -1314,7 +1314,7 @@
       ctx.beginPath();
       ctx.rect(pad.left, pad.top, plotW, plotH);
       ctx.clip();
-      drawPoints(ctx, sampleRows(cfg.background, cfg.maxBackgroundDraw || 50000), scaleX, scaleY, "rgba(17,24,39,.66)", 2.7, false);
+      drawPoints(ctx, sampleRows(cfg.background, cfg.maxBackgroundDraw || 50000), scaleX, scaleY, "rgba(138,151,163,.24)", 2.2, false);
       drawOpenPoints(ctx, cfg.pareto, scaleX, scaleY, "#1f77b4", 7);
       drawPoints(ctx, cfg.highlight, scaleX, scaleY, "#d62728", 6.5, true);
       ctx.restore();
@@ -1609,9 +1609,9 @@
 
     function draw3dPoint(ctx, point) {
       if (point.kind === "background") {
-        ctx.fillStyle = `rgba(17,24,39,${0.54 + point.perspective * 0.18})`;
+        ctx.fillStyle = `rgba(138,151,163,${0.12 + point.perspective * 0.05})`;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 3.0 * point.perspective, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, 2.4 * point.perspective, 0, Math.PI * 2);
         ctx.fill();
         return;
       }
