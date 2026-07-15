@@ -347,6 +347,95 @@
       padding: 12px;
     }
 
+    .mutation-detail {
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--purple);
+      border-radius: 8px;
+      background: #fbfcfe;
+      font-size: 13px;
+    }
+
+    .mutation-detail.empty {
+      color: var(--muted);
+      border-left-color: var(--line);
+      background: #f8fafc;
+    }
+
+    .mutation-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .mutation-title span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .mutation-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      color: #40566c;
+      font-size: 12px;
+    }
+
+    .mutation-meta span {
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: #eef4f8;
+      border: 1px solid var(--line);
+    }
+
+    .sequence-row {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      margin: 7px 0;
+    }
+
+    .sequence-label {
+      font-weight: 750;
+      color: var(--ink);
+    }
+
+    .sequence-text {
+      display: block;
+      overflow-x: auto;
+      white-space: nowrap;
+      padding: 7px 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .aa-change {
+      display: inline-block;
+      min-width: 1ch;
+      padding: 0 1px;
+      border-radius: 3px;
+      background: #ffdf5d;
+      color: #111;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .sequence-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     canvas {
       display: block;
       width: 100%;
@@ -492,9 +581,10 @@
         </div>
         <div class="plot-controls" aria-label="Graph 1 view controls">
           <button type="button" data-reset-target="plot1">Reset 3D view</button>
-          <span class="view-note">Drag to rotate. Scroll to zoom.</span>
+          <span class="view-note">Drag to rotate. Scroll to zoom. Click a red or blue point to compare its sequence to WT.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot1" width="1100" height="650"></canvas></div>
+        <div id="plot1Detail" class="mutation-detail empty"></div>
         <div class="legend">
           <span><span class="dot gray"></span>All labeled single mutants</span>
           <span><span class="dot blue"></span>Measured Pareto frontier</span>
@@ -518,9 +608,10 @@
         </div>
         <div class="plot-controls" aria-label="Graph 2 view controls">
           <button type="button" data-reset-target="plot2">Reset 3D view</button>
-          <span class="view-note">Drag to rotate. Scroll to zoom.</span>
+          <span class="view-note">Drag to rotate. Scroll to zoom. Click a red or blue point to compare its sequence to WT.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot2" width="1100" height="650"></canvas></div>
+        <div id="plot2Detail" class="mutation-detail empty"></div>
         <div class="graph-help">
           <div class="x"><strong>X-axis</strong>Measured binding fitness. Values above 1.0 beat WT binding.</div>
           <div class="y"><strong>Y-axis</strong>Source-reported stability score. Larger is treated as more stable in this dataset.</div>
@@ -551,9 +642,10 @@
         </div>
         <div class="plot-controls" aria-label="Graph 4 view controls">
           <button type="button" data-reset-target="plot4">Reset 3D view</button>
-          <span class="view-note">Drag to rotate. Scroll to zoom.</span>
+          <span class="view-note">Drag to rotate. Scroll to zoom. Click a red or blue point to compare its sequence to WT.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot4" width="1100" height="650"></canvas></div>
+        <div id="plot4Detail" class="mutation-detail empty"></div>
         <div class="legend">
           <span><span class="dot gray"></span>All double mutants with measured binding + additive stability</span>
           <span><span class="dot blue"></span>Validation Pareto frontier</span>
@@ -585,6 +677,7 @@
     const VOLUME = {A:88.6,C:108.5,D:111.1,E:138.4,F:189.9,G:60.1,H:153.2,I:166.7,K:168.6,L:166.7,M:162.9,N:114.1,P:112.7,Q:143.8,R:173.4,S:89.0,T:116.1,V:140.0,W:227.8,Y:193.6};
     const CHARGE = {A:0,C:0,D:-1,E:-1,F:0,G:0,H:0.1,I:0,K:1,L:0,M:0,N:0,P:0,Q:0,R:1,S:0,T:0,V:0,W:0,Y:0};
     const WT_BINDING = 1.0;
+    const WT_SEQUENCE = "QYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTE";
     const BLOSUM_TEXT = `
        A  R  N  D  C  Q  E  G  H  I  L  K  M  F  P  S  T  W  Y  V
     A  4 -1 -2 -2  0 -1 -1  0 -2 -1 -1 -1 -1 -2 -1  1  0 -3 -2  0
@@ -612,6 +705,8 @@
     const el = id => document.getElementById(id);
     const plotConfigs = new Map();
     const plot3dStates = new Map();
+    const clickablePointTargets = new Map();
+    const selectedPointByCanvas = new Map();
 
     initializeEmptyState();
     register3dCanvasEvents();
@@ -621,7 +716,9 @@
       if (resetButton) {
         const canvasId = resetButton.dataset.resetTarget;
         plot3dStates.set(canvasId, default3dState());
+        selectedPointByCanvas.delete(canvasId);
         const cfg = plotConfigs.get(canvasId);
+        renderMutationDetail(canvasId, null, null, cfg);
         if (cfg) drawScatter(canvasId, cfg);
         return;
       }
@@ -637,6 +734,10 @@
           ? await readCsvFile(el("lmScores").files[0], "optional ESM/LM scores")
           : null;
         const targetN = Math.max(2, Number(el("candidateCount").value || 20));
+        ["plot1", "plot2", "plot4"].forEach(canvasId => {
+          selectedPointByCanvas.delete(canvasId);
+          renderMutationDetail(canvasId, null);
+        });
 
         setStatus("Scoring single mutants and calculating Pareto front...");
         const singles = buildSingles(singleFitness, singleStability, lmScores);
@@ -720,6 +821,7 @@
       drawEmptyPlot("plot1", "Graph 1 will show selected single mutants after you run the workflow.");
       drawEmptyPlot("plot2", "Graph 2 will validate selected singles using measured binding and stability.");
       drawEmptyPlot("plot4", "Graph 4 will show generated double mutants after Round 2.");
+      ["plot1", "plot2", "plot4"].forEach(canvasId => renderMutationDetail(canvasId, null));
       el("round1Table").innerHTML = "<p class='note'>Run the workflow to see the selected Round-1 candidates.</p>";
       el("round2Table").innerHTML = "<p class='note'>Run the workflow to see highlighted Round-2 double mutants.</p>";
     }
@@ -796,6 +898,11 @@
 
     function keyDouble(row) {
       return `${Number(row.pos1)}|${row.mut1}|${Number(row.pos2)}|${row.mut2}`;
+    }
+
+    function datasetWtAt(datasetPos) {
+      const displayIndex = Number(datasetPos) - 2;
+      return displayIndex >= 0 && displayIndex < WT_SEQUENCE.length ? WT_SEQUENCE[displayIndex] : "M";
     }
 
     function lmProxy(row) {
@@ -888,12 +995,15 @@
       const out = [];
       for (const row of doubleRows) {
         const fit = Number(row.fitness);
+        const pos1 = Number(row.pos1);
+        const pos2 = Number(row.pos2);
         const s1 = singleStability.get(`${Number(row.pos1)}|${row.mut1}`);
         const s2 = singleStability.get(`${Number(row.pos2)}|${row.mut2}`);
         const lm1 = singleLm.get(`${Number(row.pos1)}|${row.mut1}`);
         const lm2 = singleLm.get(`${Number(row.pos2)}|${row.mut2}`);
         if (!Number.isFinite(fit) || !Number.isFinite(s1) || !Number.isFinite(s2) || !Number.isFinite(lm1) || !Number.isFinite(lm2)) continue;
         out.push({
+          doubleMutation: `${datasetWtAt(pos1)}${pos1}${row.mut1}+${datasetWtAt(pos2)}${pos2}${row.mut2}`,
           measuredDoubleFitness: fit,
           doubleStabilityScore: s1 + s2,
           doubleLmScore: lm1 + lm2,
@@ -989,20 +1099,25 @@
         let dragging = false;
         let lastX = 0;
         let lastY = 0;
+        let totalMove = 0;
 
         canvas.addEventListener("pointerdown", event => {
           dragging = true;
           lastX = event.clientX;
           lastY = event.clientY;
+          totalMove = 0;
           canvas.classList.add("dragging");
           canvas.setPointerCapture?.(event.pointerId);
         });
 
         canvas.addEventListener("pointermove", event => {
           if (!dragging) return;
+          const dx = event.clientX - lastX;
+          const dy = event.clientY - lastY;
+          totalMove += Math.abs(dx) + Math.abs(dy);
           const state = get3dState(canvasId);
-          state.rotY += (event.clientX - lastX) * 0.012;
-          state.rotX += (event.clientY - lastY) * 0.012;
+          state.rotY += dx * 0.012;
+          state.rotX += dy * 0.012;
           state.rotX = Math.max(-1.35, Math.min(1.35, state.rotX));
           lastX = event.clientX;
           lastY = event.clientY;
@@ -1011,9 +1126,11 @@
         });
 
         const stopDragging = event => {
+          const wasClick = dragging && totalMove < 6;
           dragging = false;
           canvas.classList.remove("dragging");
           canvas.releasePointerCapture?.(event.pointerId);
+          if (wasClick) handlePointClick(canvasId, event);
         };
         canvas.addEventListener("pointerup", stopDragging);
         canvas.addEventListener("pointercancel", stopDragging);
@@ -1031,6 +1148,123 @@
           if (cfg) drawScatter(canvasId, cfg);
         }, { passive: false });
       });
+    }
+
+    function handlePointClick(canvasId, event) {
+      const target = nearestClickablePoint(canvasId, event);
+      if (!target) return;
+      selectedPointByCanvas.set(canvasId, target);
+      const state = get3dState(canvasId);
+      state.zoom = Math.max(state.zoom, 1.75);
+      const cfg = plotConfigs.get(canvasId);
+      renderMutationDetail(canvasId, target.row, target.kind, cfg);
+      if (cfg) drawScatter(canvasId, cfg);
+    }
+
+    function nearestClickablePoint(canvasId, event) {
+      const canvas = el(canvasId);
+      const rect = canvas.getBoundingClientRect();
+      const x = (event.clientX - rect.left) * (canvas.width / rect.width);
+      const y = (event.clientY - rect.top) * (canvas.height / rect.height);
+      const targets = clickablePointTargets.get(canvasId) || [];
+      return targets
+        .map(point => ({ ...point, dist: Math.hypot(point.x - x, point.y - y) }))
+        .filter(point => point.dist <= point.hitRadius)
+        .sort((a, b) => a.dist - b.dist || (a.kind === "highlight" ? -1 : 1))
+        [0] || null;
+    }
+
+    function renderMutationDetail(canvasId, row, kind, cfg) {
+      const detail = el(`${canvasId}Detail`);
+      if (!detail) return;
+      if (!row || !cfg) {
+        detail.className = "mutation-detail empty";
+        detail.innerHTML = "Click a red selected point or blue Pareto-frontier point to zoom in and compare its mutated sequence against wild type.";
+        return;
+      }
+
+      const mutations = extractMutations(row, cfg);
+      const applied = applyMutationsToWt(mutations);
+      const label = mutationDisplayLabel(row, cfg);
+      const pointType = kind === "pareto"
+        ? "Blue Pareto frontier point"
+        : (canvasId === "plot4" ? "Red generated double candidate" : "Red selected candidate");
+      const meta = [
+        [cfg.xLabel, row[cfg.x]],
+        [cfg.yLabel, row[cfg.y]],
+        [cfg.zLabel, row[cfg.z]],
+      ].map(([name, value]) => `<span>${escapeHtml(name)}: ${formatCell(value)}</span>`).join("");
+      const warnings = applied.warnings.length
+        ? `<div class="sequence-note">${applied.warnings.map(escapeHtml).join(" ")}</div>`
+        : "";
+
+      detail.className = "mutation-detail";
+      detail.innerHTML = `
+        <div class="mutation-title">
+          <strong>${escapeHtml(pointType)}: ${escapeHtml(label)}</strong>
+          <span>Graph zoomed in. Use Reset 3D view to zoom back out.</span>
+        </div>
+        <div class="mutation-meta">${meta}</div>
+        <div class="sequence-row">
+          <div class="sequence-label">Original wild type:</div>
+          <code class="sequence-text">${renderSequence(WT_SEQUENCE, applied.changedIndexes)}</code>
+        </div>
+        <div class="sequence-row">
+          <div class="sequence-label">After mutation:</div>
+          <code class="sequence-text">${renderSequence(applied.sequence, applied.changedIndexes)}</code>
+        </div>
+        <div class="sequence-note">Position labels in the dataset include the starting M. This display uses the WT sequence you provided, which starts at Q, so mutations are applied with that one-residue offset.</div>
+        ${warnings}
+      `;
+    }
+
+    function mutationDisplayLabel(row, cfg) {
+      return row[cfg.highlightLabel] || row.doubleMutation || row.mutation || extractMutations(row, cfg).map(m => `${m.wt}${m.pos}${m.mut}`).join("+") || "selected point";
+    }
+
+    function extractMutations(row, cfg) {
+      if (Number.isFinite(Number(row.pos)) && row.wt && row.mut) {
+        return [{ wt: row.wt, pos: Number(row.pos), mut: row.mut }];
+      }
+      const label = row.doubleMutation || row.mutation || row[cfg.highlightLabel] || "";
+      const matches = [...String(label).matchAll(/([A-Z])(\d+)([A-Z])/g)];
+      return matches.map(match => ({ wt: match[1], pos: Number(match[2]), mut: match[3] }));
+    }
+
+    function applyMutationsToWt(mutations) {
+      const chars = WT_SEQUENCE.split("");
+      const changedIndexes = new Set();
+      const warnings = [];
+      for (const mutation of mutations) {
+        const displayIndex = mutation.pos - 2;
+        if (displayIndex < 0 || displayIndex >= chars.length) {
+          warnings.push(`${mutation.wt}${mutation.pos}${mutation.mut} is outside the displayed WT sequence.`);
+          continue;
+        }
+        if (chars[displayIndex] !== mutation.wt) {
+          warnings.push(`${mutation.wt}${mutation.pos}${mutation.mut} expected ${mutation.wt}, but the displayed WT has ${chars[displayIndex]} at that mapped position.`);
+        }
+        chars[displayIndex] = mutation.mut;
+        changedIndexes.add(displayIndex);
+      }
+      return { sequence: chars.join(""), changedIndexes, warnings };
+    }
+
+    function renderSequence(sequence, changedIndexes) {
+      return sequence.split("").map((aa, i) => {
+        const safe = escapeHtml(aa);
+        return changedIndexes.has(i) ? `<span class="aa-change">${safe}</span>` : safe;
+      }).join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[ch]));
     }
 
     function drawScatter(canvasId, cfg) {
@@ -1125,9 +1359,20 @@
         ...make3dDrawRows(cfg.pareto.filter(row => has3d(row, cfg) && pointIn3dBounds(row, cfg, bounds)), cfg, bounds, state, center, "pareto"),
         ...make3dDrawRows(cfg.highlight.filter(row => has3d(row, cfg) && pointIn3dBounds(row, cfg, bounds)), cfg, bounds, state, center, "highlight"),
       ].sort((a, b) => a.depth - b.depth);
+      clickablePointTargets.set(canvasId, drawRows
+        .filter(point => point.kind === "pareto" || point.kind === "highlight")
+        .map(point => ({
+          x: point.x,
+          y: point.y,
+          row: point.row,
+          kind: point.kind,
+          depth: point.depth,
+          hitRadius: point.kind === "pareto" ? 14 : 13,
+        })));
 
       draw3dAxes(ctx, cfg, bounds, state, center, canvas);
       for (const point of drawRows) draw3dPoint(ctx, point);
+      drawSelectedPointRing(ctx, drawRows, selectedPointByCanvas.get(canvasId));
       label3dHighlights(ctx, drawRows.filter(p => p.kind === "highlight").slice(-7), cfg.highlightLabel);
 
       ctx.fillStyle = "#17202a";
@@ -1280,6 +1525,22 @@
       ctx.beginPath();
       ctx.arc(point.x, point.y, 6.4 * point.perspective, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
+    }
+
+    function drawSelectedPointRing(ctx, points, selected) {
+      if (!selected) return;
+      const point = points.find(candidate => candidate.row === selected.row && candidate.kind === selected.kind);
+      if (!point) return;
+      ctx.strokeStyle = "#111827";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 12 * point.perspective + 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = "#ffdf5d";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 12 * point.perspective + 10, 0, Math.PI * 2);
       ctx.stroke();
     }
 
