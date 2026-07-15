@@ -16,7 +16,7 @@ https://jack118672.github.io/gb1-no-lda-cooptimization/downloads/GB1_Multi_Mutan
 - Validates selected candidates against measured GB1 binding and source-reported stability values.
 - Recombines selected singles into double mutants and checks measured double-mutant binding.
 - Extends beyond doubles into capped triple/quadruple multi-mutant recommendations.
-- Provides an interactive 3D Mutation Module that maps selected mutation sites onto a simplified GB1 fold.
+- Provides an interactive 3D Mutation Model that maps selected mutation sites onto a simplified GB1 fold and shows an estimated local shape perturbation.
 
 No LDA model is used in this current workflow, and there is intentionally no Graph 3.
 
@@ -30,7 +30,7 @@ Then:
 1. Open **1. Inputs / Run**.
 2. Click **Run**.
 3. Open **2. Outputs / Results** to view graphs, tables, and summaries.
-4. Click red or blue graph points to open **3. 3D Module**.
+4. Click red or blue graph points to open **3. 3D Model**.
 
 ## Download As A Windows App
 
@@ -65,4 +65,4 @@ The app uses the files in `data/`:
 - The plotted stability value is the source-reported GB1 stability scale used in this project. It should not be relabeled as generic folding deltaG where lower/more negative is always favorable.
 - Double-mutant stability is estimated additively as `stability_score_1 + stability_score_2`.
 - Triple and quadruple multi-mutants are ranked recommendations, not experimentally measured binding claims in the local dataset.
-- The 3D Mutation Module is an interpretive structure map. It highlights mutation positions on a simplified GB1 fold and compares WT vs mutated sequence. It does not run molecular dynamics, docking, or a new folding prediction.
+- The 3D Mutation Model is an interpretive structure map. It highlights mutation positions on a simplified GB1 fold, compares WT vs mutated sequence, and bends the mutant-side view near changed residues using amino-acid chemistry differences. It does not run molecular dynamics, docking, AlphaFold, Rosetta, or a true new folding prediction.

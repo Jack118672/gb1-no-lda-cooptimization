@@ -184,9 +184,33 @@
       cursor: grabbing;
     }
 
+    .module-options {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .module-options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .module-options input {
+      width: auto;
+      margin: 0;
+    }
+
     .module-summary {
       display: grid;
-      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 10px;
       margin: 14px 0;
     }
@@ -742,7 +766,7 @@
   <div class="app-tabs" aria-label="App tabs">
     <button type="button" class="active" data-app-tab="inputsTab">1. Inputs / Run</button>
     <button type="button" data-app-tab="outputsTab">2. Outputs / Results</button>
-    <button type="button" data-app-tab="moduleTab">3. 3D Module</button>
+    <button type="button" data-app-tab="moduleTab">3. 3D Model</button>
   </div>
 
   <main>
@@ -987,7 +1011,7 @@
       <section>
         <div class="section-title">
           <div>
-            <h2>3D Mutation Module</h2>
+            <h2>3D Mutation Model</h2>
             <p>Click a red or blue point in the graphs to send that candidate here for WT-vs-mutant structure mapping.</p>
           </div>
           <span class="badge purple">3D</span>
@@ -999,7 +1023,7 @@
 
         <div id="moduleSummary" class="module-summary"></div>
 
-        <div class="plot-controls" aria-label="3D module controls">
+        <div class="plot-controls" aria-label="3D model controls">
           <button type="button" data-module-reset>Reset view</button>
           <button type="button" data-protein-action="left">Rotate left</button>
           <button type="button" data-protein-action="right">Rotate right</button>
@@ -1008,6 +1032,11 @@
           <button type="button" data-protein-action="zoomIn">Zoom in</button>
           <button type="button" data-protein-action="zoomOut">Zoom out</button>
           <span class="view-note">Drag either protein to rotate both. Scroll or use the buttons to zoom. Yellow sites are the residues changed by the selected mutation.</span>
+        </div>
+
+        <div class="module-options">
+          <label><input id="shapeEffectToggle" type="checkbox" checked> Show estimated local shape effect</label>
+          <span>The mutant panel bends near changed residues using amino-acid chemistry differences. This is a visual approximation, not a solved structure.</span>
         </div>
 
         <div class="module-grid">
@@ -1026,7 +1055,7 @@
         </div>
 
         <div class="note warn">
-          This module maps mutation sites onto a simplified GB1 fold for interpretation. It does not run molecular dynamics, docking, or a new folding prediction.
+          This 3D model estimates a local visual shape perturbation from amino-acid chemistry changes. It does not run molecular dynamics, docking, AlphaFold, Rosetta, or a true new folding prediction.
         </div>
       </section>
     </section>
@@ -1076,7 +1105,7 @@
     const plotViewModes = { plot1: "3d", plot2: "3d", plot4: "3d", plotMulti: "3d" };
     const clickablePointTargets = new Map();
     const selectedPointByCanvas = new Map();
-    const proteinModuleState = { rotX: -0.48, rotY: 0.72, zoom: 1.0 };
+    const proteinModuleState = { rotX: -0.48, rotY: 0.72, zoom: 1.0, showEffect: true };
     let activeModuleSelection = null;
 
     document.addEventListener("click", event => {
@@ -2017,6 +2046,11 @@
         drawProteinModule();
       });
 
+      el("shapeEffectToggle").addEventListener("change", event => {
+        proteinModuleState.showEffect = event.target.checked;
+        drawProteinModule();
+      });
+
       document.querySelectorAll("[data-protein-action]").forEach(button => {
         button.addEventListener("click", () => {
           const action = button.dataset.proteinAction;
@@ -2054,14 +2088,17 @@
       const evidence = canvasId === "plotMulti"
         ? "Estimated ranking, not measured binding"
         : "Measured database values";
+      const shapeEffect = estimateShapeEffect(mutations);
       el("moduleStatus").innerHTML = `
         Showing <strong>${escapeHtml(label)}</strong> from ${escapeHtml(graphName)}.
         Yellow marks show where the selected mutation changes the displayed WT sequence.
+        The mutant panel adds an estimated local backbone perturbation score of <strong>${shapeEffect.toFixed(2)}</strong>.
       `;
       el("moduleSummary").innerHTML = [
         [label, "Selected candidate"],
         [mutations.length, "Mutation count"],
         [graphName, "Graph source"],
+        [shapeEffect.toFixed(2), "Estimated shape effect"],
         [evidence, "Evidence type"],
       ].map(([value, text]) => `<div class="module-stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(text)}</span></div>`).join("");
       const chips = mutations.map(m => `<span class="mutation-chip">${escapeHtml(m.wt)}${m.pos}${escapeHtml(m.mut)}</span>`).join("");
@@ -2088,7 +2125,7 @@
           <div class="sequence-label">After mutation:</div>
           <code class="sequence-text">${renderSequence(applied.sequence, applied.changedIndexes)}</code>
         </div>
-        <div class="sequence-note">The backbone is held fixed so the module highlights mutation location and chemistry. A true structural-effect prediction would require AlphaFold/Rosetta/Molecular Dynamics or experimental structure data.</div>
+        <div class="sequence-note">The mutant-side backbone uses a simple local perturbation model based on amino-acid volume, hydropathy, and charge changes. This makes likely affected regions visible, but it is not a real folded mutant structure.</div>
         ${warnings}
       `;
     }
@@ -2107,7 +2144,15 @@
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       const selectedIndexes = new Set(activeModuleSelection?.applied.changedIndexes || []);
       const changedSequence = activeModuleSelection?.applied.sequence || WT_SEQUENCE;
-      const projected = GB1_BACKBONE.map(point => ({
+      const backbone = mutated && activeModuleSelection && proteinModuleState.showEffect
+        ? perturbProteinBackbone(GB1_BACKBONE, activeModuleSelection.mutations)
+        : GB1_BACKBONE;
+      const referenceProjected = GB1_BACKBONE.map(point => ({
+        ...point,
+        aaShown: WT_SEQUENCE[point.index],
+        p: projectProteinPoint(point, canvas),
+      }));
+      const projected = backbone.map(point => ({
         ...point,
         aaShown: mutated ? changedSequence[point.index] : WT_SEQUENCE[point.index],
         p: projectProteinPoint(point, canvas),
@@ -2115,6 +2160,20 @@
 
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+      if (mutated && activeModuleSelection && proteinModuleState.showEffect) {
+        ctx.save();
+        ctx.setLineDash([7, 6]);
+        ctx.strokeStyle = "rgba(31, 41, 55, 0.28)";
+        ctx.lineWidth = 3;
+        for (let i = 0; i < referenceProjected.length - 1; i++) {
+          const a = referenceProjected[i], b = referenceProjected[i + 1];
+          ctx.beginPath();
+          ctx.moveTo(a.p.x, a.p.y);
+          ctx.lineTo(b.p.x, b.p.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
       for (let i = 0; i < projected.length - 1; i++) {
         const a = projected[i], b = projected[i + 1];
         ctx.strokeStyle = secondaryColor(a.ss, 0.74);
@@ -2151,7 +2210,9 @@
       ctx.fillText(mutated ? "After selected mutation" : "Wild type reference", 20, 28);
       ctx.fillStyle = "#5d6b7a";
       ctx.font = "12px Segoe UI, Arial";
-      ctx.fillText("GB1 fold map: beta strands blue, helix red, loops gray, selected sites yellow.", 20, 48);
+      ctx.fillText(mutated && activeModuleSelection && proteinModuleState.showEffect
+        ? "Estimated mutant trace. Dashed gray line shows original WT backbone reference."
+        : "GB1 fold map: beta strands blue, helix red, loops gray, selected sites yellow.", 20, 48);
       if (!activeModuleSelection) {
         ctx.fillStyle = "rgba(255, 255, 255, 0.84)";
         ctx.fillRect(96, 198, canvas.width - 192, 104);
@@ -2166,6 +2227,61 @@
         ctx.fillText("Run the workflow, then click a red or blue point in Outputs.", canvas.width / 2, 270);
         ctx.textAlign = "left";
       }
+    }
+
+    function estimateShapeEffect(mutations) {
+      if (!mutations.length) return 0;
+      const total = mutations.reduce((sum, mutation) => sum + mutationChemistryDelta(mutation), 0);
+      return Math.min(10, total / Math.sqrt(mutations.length));
+    }
+
+    function mutationChemistryDelta(mutation) {
+      const wt = mutation.wt;
+      const mut = mutation.mut;
+      const volumeDelta = Math.abs((VOLUME[mut] ?? VOLUME[wt] ?? 120) - (VOLUME[wt] ?? 120)) / 120;
+      const hydroDelta = Math.abs((HYDROPATHY[mut] ?? 0) - (HYDROPATHY[wt] ?? 0)) / 5.5;
+      const chargeDelta = Math.abs((CHARGE[mut] ?? 0) - (CHARGE[wt] ?? 0)) / 1.5;
+      return Math.min(3.2, 0.55 + volumeDelta * 0.95 + hydroDelta * 0.9 + chargeDelta * 0.8);
+    }
+
+    function perturbProteinBackbone(backbone, mutations) {
+      const mutationEffects = mutations
+        .map(mutation => ({
+          ...mutation,
+          index: mutation.pos - 2,
+          strength: mutationChemistryDelta(mutation),
+        }))
+        .filter(mutation => mutation.index >= 0 && mutation.index < backbone.length);
+      if (!mutationEffects.length) return backbone;
+
+      return backbone.map(point => {
+        let dx = 0, dy = 0, dz = 0;
+        for (const mutation of mutationEffects) {
+          const distance = point.index - mutation.index;
+          const spread = point.ss === "loop" ? 6.5 : point.ss === "helix" ? 5.2 : 4.2;
+          const weight = Math.exp(-(distance * distance) / (2 * spread * spread));
+          const direction = mutationDirection(mutation);
+          const localTwist = Math.sin((point.index + 1) * 0.72 + mutation.index * 0.31);
+          const amplitude = mutation.strength * weight;
+          dx += direction.x * amplitude * 1.8 + localTwist * amplitude * 0.35;
+          dy += direction.y * amplitude * 1.5 + Math.cos(distance * 0.9) * amplitude * 0.22;
+          dz += direction.z * amplitude * 1.65 + Math.sin(distance * 1.1) * amplitude * 0.28;
+        }
+        return { ...point, x: point.x + dx, y: point.y + dy, z: point.z + dz };
+      });
+    }
+
+    function mutationDirection(mutation) {
+      const index = mutation.pos - 2;
+      const seed = (index + 1) * 1.618;
+      const volumeSign = ((VOLUME[mutation.mut] ?? 120) - (VOLUME[mutation.wt] ?? 120)) >= 0 ? 1 : -1;
+      const hydroSign = ((HYDROPATHY[mutation.mut] ?? 0) - (HYDROPATHY[mutation.wt] ?? 0)) >= 0 ? 1 : -1;
+      const chargeSign = ((CHARGE[mutation.mut] ?? 0) - (CHARGE[mutation.wt] ?? 0)) >= 0 ? 1 : -1;
+      return {
+        x: Math.cos(seed) * volumeSign,
+        y: Math.sin(seed * 0.8) * hydroSign,
+        z: Math.cos(seed * 1.3) * chargeSign,
+      };
     }
 
     function projectProteinPoint(point, canvas) {
