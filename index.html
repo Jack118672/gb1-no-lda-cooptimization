@@ -271,7 +271,7 @@
 
     .graph-help {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
       margin-top: 12px;
     }
@@ -291,6 +291,7 @@
 
     .graph-help .x { background: var(--soft-blue); }
     .graph-help .y { background: var(--soft-green); }
+    .graph-help .z { background: #eef2ff; }
     .graph-help .red { background: var(--soft-red); }
 
     .status {
@@ -351,6 +352,12 @@
       width: 100%;
       min-width: 760px;
       height: 520px;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    canvas.dragging {
+      cursor: grabbing;
     }
 
     .table-wrap {
@@ -486,7 +493,8 @@
         <div class="plot-controls" aria-label="Graph 1 view controls">
           <button type="button" class="active" data-zoom-target="plot1" data-zoom-mode="focus">Focus view</button>
           <button type="button" data-zoom-target="plot1" data-zoom-mode="full">Full landscape</button>
-          <span class="view-note">Focus view zooms into the selected-candidate cluster.</span>
+          <button type="button" data-reset-target="plot1">Reset 3D view</button>
+          <span class="view-note">Drag to rotate. Scroll to zoom. Focus view zooms into the selected-candidate cluster.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot1" width="1100" height="650"></canvas></div>
         <div class="legend">
@@ -497,6 +505,7 @@
         <div class="graph-help">
           <div class="x"><strong>X-axis</strong>Measured binding fitness. Values above 1.0 beat WT binding.</div>
           <div class="y"><strong>Y-axis</strong>Source-reported stability score. Larger is treated as more stable in this dataset.</div>
+          <div class="z"><strong>Z-axis</strong>ESM/LM plausibility score used to rank Round-1 candidates.</div>
           <div class="red"><strong>Red points</strong>Mutations selected because their `lm_score` was high.</div>
         </div>
       </section>
@@ -512,10 +521,17 @@
         <div class="plot-controls" aria-label="Graph 2 view controls">
           <button type="button" class="active" data-zoom-target="plot2" data-zoom-mode="focus">Focus view</button>
           <button type="button" data-zoom-target="plot2" data-zoom-mode="full">Full landscape</button>
-          <span class="view-note">Use full landscape when you want to inspect outliers.</span>
+          <button type="button" data-reset-target="plot2">Reset 3D view</button>
+          <span class="view-note">Drag to rotate. Scroll to zoom. Use full landscape when you want to inspect outliers.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot2" width="1100" height="650"></canvas></div>
-        <div class="note">This graph uses measured database values only. It does not use LDA or a trained predictor.</div>
+        <div class="graph-help">
+          <div class="x"><strong>X-axis</strong>Measured binding fitness. Values above 1.0 beat WT binding.</div>
+          <div class="y"><strong>Y-axis</strong>Source-reported stability score. Larger is treated as more stable in this dataset.</div>
+          <div class="z"><strong>Z-axis</strong>ESM/LM plausibility score for each single mutant.</div>
+          <div class="red"><strong>Red points</strong>Round-1 candidates selected by LM plausibility.</div>
+        </div>
+        <div class="note">This graph uses measured binding and stability values, with LM score shown only as the 3D Z-axis. It does not use LDA or a trained Pareto predictor.</div>
       </section>
 
       <section>
@@ -540,7 +556,8 @@
         <div class="plot-controls" aria-label="Graph 4 view controls">
           <button type="button" class="active" data-zoom-target="plot4" data-zoom-mode="focus">Focus view</button>
           <button type="button" data-zoom-target="plot4" data-zoom-mode="full">Full landscape</button>
-          <span class="view-note">Focus view crops away distant outliers so the main cluster is readable.</span>
+          <button type="button" data-reset-target="plot4">Reset 3D view</button>
+          <span class="view-note">Drag to rotate. Scroll to zoom. Focus view crops away distant outliers so the main cluster is readable.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot4" width="1100" height="650"></canvas></div>
         <div class="legend">
@@ -551,6 +568,7 @@
         <div class="graph-help">
           <div class="x"><strong>X-axis</strong>Measured double-mutant binding fitness from the database.</div>
           <div class="y"><strong>Y-axis</strong>Additive stability score: stability score 1 + stability score 2.</div>
+          <div class="z"><strong>Z-axis</strong>Additive LM score: LM score 1 + LM score 2.</div>
           <div class="red"><strong>Red points</strong>Generated double mutants made from selected Round-1 singles.</div>
         </div>
       </section>
@@ -599,11 +617,22 @@
     const BLOSUM = parseBlosum(BLOSUM_TEXT);
     const el = id => document.getElementById(id);
     const plotConfigs = new Map();
+    const plot3dStates = new Map();
     const plotModes = { plot1: "focus", plot2: "focus", plot4: "focus" };
 
     initializeEmptyState();
+    register3dCanvasEvents();
 
     document.addEventListener("click", event => {
+      const resetButton = event.target.closest("[data-reset-target]");
+      if (resetButton) {
+        const canvasId = resetButton.dataset.resetTarget;
+        plot3dStates.set(canvasId, default3dState());
+        const cfg = plotConfigs.get(canvasId);
+        if (cfg) drawScatter(canvasId, cfg);
+        return;
+      }
+
       const button = event.target.closest("[data-zoom-target]");
       if (!button) return;
       const canvasId = button.dataset.zoomTarget;
@@ -647,11 +676,13 @@
           title: "Graph 1 - Single-mutant selection map",
           xLabel: "Measured GB1 IgG-Fc binding fitness",
           yLabel: "Source-reported stability score",
+          zLabel: "ESM/LM plausibility score",
           background: singles,
           pareto: singles.filter(row => row.measuredPareto),
           highlight: selected,
           x: "fitness",
           y: "stabilityScore",
+          z: "lmScore",
           highlightLabel: "mutation",
         });
 
@@ -659,11 +690,13 @@
           title: "Graph 2 - Measured Round-1 validation",
           xLabel: "Measured GB1 IgG-Fc binding fitness",
           yLabel: "Source-reported stability score",
+          zLabel: "ESM/LM plausibility score",
           background: singles,
           pareto: singles.filter(row => row.measuredPareto),
           highlight: selected,
           x: "fitness",
           y: "stabilityScore",
+          z: "lmScore",
           highlightLabel: "mutation",
         });
 
@@ -671,11 +704,13 @@
           title: "Graph 4 - Double-mutant recombination validation",
           xLabel: "Measured double-mutant GB1 binding fitness",
           yLabel: "Additive stability score 1 + score 2",
+          zLabel: "Additive ESM/LM score 1 + score 2",
           background: doubleBackground,
           pareto: doubleBackground.filter(row => row.validationPareto),
           highlight: highlightedDoubles,
           x: "measuredDoubleFitness",
           y: "doubleStabilityScore",
+          z: "doubleLmScore",
           highlightLabel: "doubleMutation",
           maxBackgroundDraw: 30000,
         });
@@ -867,15 +902,19 @@
 
     function buildDoubleBackground(singles, doubleRows) {
       const singleStability = new Map(singles.map(row => [`${row.pos}|${row.mut}`, row.stabilityScore]));
+      const singleLm = new Map(singles.map(row => [`${row.pos}|${row.mut}`, row.lmScore]));
       const out = [];
       for (const row of doubleRows) {
         const fit = Number(row.fitness);
         const s1 = singleStability.get(`${Number(row.pos1)}|${row.mut1}`);
         const s2 = singleStability.get(`${Number(row.pos2)}|${row.mut2}`);
-        if (!Number.isFinite(fit) || !Number.isFinite(s1) || !Number.isFinite(s2)) continue;
+        const lm1 = singleLm.get(`${Number(row.pos1)}|${row.mut1}`);
+        const lm2 = singleLm.get(`${Number(row.pos2)}|${row.mut2}`);
+        if (!Number.isFinite(fit) || !Number.isFinite(s1) || !Number.isFinite(s2) || !Number.isFinite(lm1) || !Number.isFinite(lm2)) continue;
         out.push({
           measuredDoubleFitness: fit,
           doubleStabilityScore: s1 + s2,
+          doubleLmScore: lm1 + lm2,
         });
       }
       const mask = paretoMask2d(out, "measuredDoubleFitness", "doubleStabilityScore");
@@ -953,7 +992,71 @@
       drawScatter(canvasId, cfg);
     }
 
+    function default3dState() {
+      return { rotX: -0.58, rotY: 0.72, zoom: 1.0 };
+    }
+
+    function get3dState(canvasId) {
+      if (!plot3dStates.has(canvasId)) plot3dStates.set(canvasId, default3dState());
+      return plot3dStates.get(canvasId);
+    }
+
+    function register3dCanvasEvents() {
+      ["plot1", "plot2", "plot4"].forEach(canvasId => {
+        const canvas = el(canvasId);
+        let dragging = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        canvas.addEventListener("pointerdown", event => {
+          dragging = true;
+          lastX = event.clientX;
+          lastY = event.clientY;
+          canvas.classList.add("dragging");
+          canvas.setPointerCapture?.(event.pointerId);
+        });
+
+        canvas.addEventListener("pointermove", event => {
+          if (!dragging) return;
+          const state = get3dState(canvasId);
+          state.rotY += (event.clientX - lastX) * 0.012;
+          state.rotX += (event.clientY - lastY) * 0.012;
+          state.rotX = Math.max(-1.35, Math.min(1.35, state.rotX));
+          lastX = event.clientX;
+          lastY = event.clientY;
+          const cfg = plotConfigs.get(canvasId);
+          if (cfg) drawScatter(canvasId, cfg);
+        });
+
+        const stopDragging = event => {
+          dragging = false;
+          canvas.classList.remove("dragging");
+          canvas.releasePointerCapture?.(event.pointerId);
+        };
+        canvas.addEventListener("pointerup", stopDragging);
+        canvas.addEventListener("pointercancel", stopDragging);
+        canvas.addEventListener("pointerleave", () => {
+          dragging = false;
+          canvas.classList.remove("dragging");
+        });
+
+        canvas.addEventListener("wheel", event => {
+          event.preventDefault();
+          const state = get3dState(canvasId);
+          state.zoom *= event.deltaY < 0 ? 1.09 : 0.92;
+          state.zoom = Math.max(0.55, Math.min(2.6, state.zoom));
+          const cfg = plotConfigs.get(canvasId);
+          if (cfg) drawScatter(canvasId, cfg);
+        }, { passive: false });
+      });
+    }
+
     function drawScatter(canvasId, cfg) {
+      if (cfg.z) {
+        drawScatter3d(canvasId, cfg);
+        return;
+      }
+
       const canvas = el(canvasId);
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1012,6 +1115,205 @@
           ctx.fillText(String(row[cfg.highlightLabel] || ""), lx, ly);
         }
       });
+    }
+
+    function drawScatter3d(canvasId, cfg) {
+      const canvas = el(canvasId);
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const all = [...cfg.background, ...cfg.pareto, ...cfg.highlight].filter(row => has3d(row, cfg));
+      const mode = plotModes[canvasId] || "focus";
+      const xyBounds = getViewBounds(cfg, all, mode);
+      const zBounds = getZViewBounds(cfg, all, mode);
+      const bounds = pad3dBounds({
+        xMin: Math.min(0, xyBounds.xMin),
+        xMax: xyBounds.xMax,
+        yMin: xyBounds.yMin,
+        yMax: xyBounds.yMax,
+        zMin: zBounds.zMin,
+        zMax: zBounds.zMax,
+      });
+
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const state = get3dState(canvasId);
+      const center = { x: canvas.width / 2 + 12, y: canvas.height / 2 + 34 };
+      const drawRows = [
+        ...make3dDrawRows(sampleRows(cfg.background.filter(row => has3d(row, cfg) && pointIn3dBounds(row, cfg, bounds)), cfg.maxBackgroundDraw || 50000), cfg, bounds, state, center, "background"),
+        ...make3dDrawRows(cfg.pareto.filter(row => has3d(row, cfg) && pointIn3dBounds(row, cfg, bounds)), cfg, bounds, state, center, "pareto"),
+        ...make3dDrawRows(cfg.highlight.filter(row => has3d(row, cfg) && pointIn3dBounds(row, cfg, bounds)), cfg, bounds, state, center, "highlight"),
+      ].sort((a, b) => a.depth - b.depth);
+
+      draw3dAxes(ctx, cfg, bounds, state, center, canvas);
+      for (const point of drawRows) draw3dPoint(ctx, point);
+      label3dHighlights(ctx, drawRows.filter(p => p.kind === "highlight").slice(-7), cfg.highlightLabel);
+
+      ctx.fillStyle = "#17202a";
+      ctx.font = "18px Segoe UI, Arial";
+      ctx.fillText(cfg.title, 76, 28);
+      ctx.fillStyle = "#5d6b7a";
+      ctx.font = "12px Segoe UI, Arial";
+      ctx.fillText(`${mode === "focus" ? "Focus" : "Full"} 3D view: drag to rotate, scroll to zoom, reset button restores the starting angle.`, 76, 45);
+    }
+
+    function has3d(row, cfg) {
+      return Number.isFinite(row[cfg.x]) && Number.isFinite(row[cfg.y]) && Number.isFinite(row[cfg.z]);
+    }
+
+    function getZViewBounds(cfg, all, mode) {
+      const candidates = mode === "focus"
+        ? cfg.highlight.filter(row => has3d(row, cfg))
+        : all;
+      const anchor = candidates.length ? candidates : all;
+      let zMin = Infinity, zMax = -Infinity;
+      for (const row of anchor) {
+        const z = row[cfg.z];
+        if (!Number.isFinite(z)) continue;
+        if (z < zMin) zMin = z;
+        if (z > zMax) zMax = z;
+      }
+      if (!Number.isFinite(zMin)) return { zMin: 0, zMax: 1 };
+      const range = Math.max(zMax - zMin, 0.6);
+      const center = (zMin + zMax) / 2;
+      return { zMin: center - range / 2, zMax: center + range / 2 };
+    }
+
+    function pad3dBounds(bounds) {
+      const xRange = Math.max(bounds.xMax - bounds.xMin, 1);
+      const yRange = Math.max(bounds.yMax - bounds.yMin, 1);
+      const zRange = Math.max(bounds.zMax - bounds.zMin, 1);
+      return {
+        xMin: bounds.xMin - xRange * 0.08,
+        xMax: bounds.xMax + xRange * 0.08,
+        yMin: bounds.yMin - yRange * 0.10,
+        yMax: bounds.yMax + yRange * 0.10,
+        zMin: bounds.zMin - zRange * 0.12,
+        zMax: bounds.zMax + zRange * 0.12,
+      };
+    }
+
+    function pointIn3dBounds(row, cfg, bounds) {
+      return row[cfg.x] >= bounds.xMin && row[cfg.x] <= bounds.xMax
+        && row[cfg.y] >= bounds.yMin && row[cfg.y] <= bounds.yMax
+        && row[cfg.z] >= bounds.zMin && row[cfg.z] <= bounds.zMax;
+    }
+
+    function make3dDrawRows(rows, cfg, bounds, state, center, kind) {
+      return rows.map(row => {
+        const p = project3d(row[cfg.x], row[cfg.y], row[cfg.z], bounds, state, center);
+        return { ...p, row, kind };
+      });
+    }
+
+    function project3d(x, y, z, bounds, state, center) {
+      const nx = normalize(x, bounds.xMin, bounds.xMax);
+      const ny = normalize(y, bounds.yMin, bounds.yMax);
+      const nz = normalize(z, bounds.zMin, bounds.zMax);
+
+      const cy = Math.cos(state.rotY), sy = Math.sin(state.rotY);
+      const cx = Math.cos(state.rotX), sx = Math.sin(state.rotX);
+      const x1 = nx * cy + nz * sy;
+      const z1 = -nx * sy + nz * cy;
+      const y1 = ny * cx - z1 * sx;
+      const z2 = ny * sx + z1 * cx;
+      const perspective = 900 / (900 + z2 * 210);
+      const scale = 215 * state.zoom * perspective;
+      return {
+        x: center.x + x1 * scale,
+        y: center.y - y1 * scale,
+        depth: z2,
+        perspective,
+      };
+    }
+
+    function normalize(value, min, max) {
+      const range = max - min || 1;
+      return ((value - min) / range) * 2 - 1;
+    }
+
+    function draw3dAxes(ctx, cfg, bounds, state, center, canvas) {
+      const origin = project3d(bounds.xMin, bounds.yMin, bounds.zMin, bounds, state, center);
+      const xEnd = project3d(bounds.xMax, bounds.yMin, bounds.zMin, bounds, state, center);
+      const yEnd = project3d(bounds.xMin, bounds.yMax, bounds.zMin, bounds, state, center);
+      const zEnd = project3d(bounds.xMin, bounds.yMin, bounds.zMax, bounds, state, center);
+      const xy2 = project3d(bounds.xMax, bounds.yMax, bounds.zMin, bounds, state, center);
+      const xz2 = project3d(bounds.xMax, bounds.yMin, bounds.zMax, bounds, state, center);
+      const yz2 = project3d(bounds.xMin, bounds.yMax, bounds.zMax, bounds, state, center);
+
+      ctx.lineWidth = 1.1;
+      ctx.strokeStyle = "#d7dde5";
+      drawLine(ctx, xEnd, xy2);
+      drawLine(ctx, yEnd, xy2);
+      drawLine(ctx, xEnd, xz2);
+      drawLine(ctx, zEnd, xz2);
+      drawLine(ctx, yEnd, yz2);
+      drawLine(ctx, zEnd, yz2);
+
+      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = "#245b7a";
+      drawLine(ctx, origin, xEnd);
+      ctx.strokeStyle = "#2f855a";
+      drawLine(ctx, origin, yEnd);
+      ctx.strokeStyle = "#7057c8";
+      drawLine(ctx, origin, zEnd);
+
+      ctx.fillStyle = "#17202a";
+      ctx.font = "12px Segoe UI, Arial";
+      ctx.fillText(`${cfg.xLabel}: ${bounds.xMin.toFixed(1)} to ${bounds.xMax.toFixed(1)}`, 76, canvas.height - 54);
+      ctx.fillText(`${cfg.yLabel}: ${bounds.yMin.toFixed(1)} to ${bounds.yMax.toFixed(1)}`, 76, canvas.height - 34);
+      ctx.fillText(`${cfg.zLabel}: ${bounds.zMin.toFixed(2)} to ${bounds.zMax.toFixed(2)}`, 76, canvas.height - 14);
+
+      ctx.font = "700 13px Segoe UI, Arial";
+      ctx.fillStyle = "#245b7a";
+      ctx.fillText("X binding", xEnd.x + 6, xEnd.y);
+      ctx.fillStyle = "#2f855a";
+      ctx.fillText("Y stability", yEnd.x + 6, yEnd.y);
+      ctx.fillStyle = "#7057c8";
+      ctx.fillText("Z LM score", zEnd.x + 6, zEnd.y);
+    }
+
+    function drawLine(ctx, a, b) {
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+
+    function draw3dPoint(ctx, point) {
+      if (point.kind === "background") {
+        ctx.fillStyle = `rgba(138,151,163,${0.12 + point.perspective * 0.05})`;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 2.4 * point.perspective, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
+      if (point.kind === "pareto") {
+        ctx.strokeStyle = "#1f77b4";
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 7.2 * point.perspective, 0, Math.PI * 2);
+        ctx.stroke();
+        return;
+      }
+      ctx.fillStyle = "#d62728";
+      ctx.strokeStyle = "#111";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 6.4 * point.perspective, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    function label3dHighlights(ctx, points, labelKey) {
+      ctx.fillStyle = "#34495e";
+      ctx.font = "11px Segoe UI, Arial";
+      for (const point of points) {
+        const label = String(point.row[labelKey] || "");
+        if (!label) continue;
+        ctx.fillText(label, point.x + 8, point.y - 8);
+      }
     }
 
     function getViewBounds(cfg, all, mode) {
