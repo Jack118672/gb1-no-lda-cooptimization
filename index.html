@@ -1041,7 +1041,7 @@
         <div class="section-title">
           <div>
             <h2>3D Mutation Model</h2>
-            <p>Click a red or blue point in the graphs to send that candidate here for WT-vs-mutant structure mapping.</p>
+            <p>Click a red or blue point in the graphs to view the real GB1 structure and the selected mutation effect.</p>
           </div>
           <span class="badge purple">3D</span>
         </div>
@@ -1065,24 +1065,24 @@
 
         <div class="module-options">
           <label><input id="shapeEffectToggle" type="checkbox" checked> Show estimated local shape effect</label>
-          <span>The mutant panel bends near changed residues using amino-acid chemistry differences. This is a visual approximation, not a solved structure.</span>
+          <span>The WT panel uses a bundled real GB1 PDB structure. The mutant panel is generated automatically from the selected mutation unless you load your own predicted mutant PDB.</span>
         </div>
 
         <div class="prediction-import">
           <div>
-            <label for="wtPdbInput">WT predicted/experimental PDB</label>
+            <label for="wtPdbInput">Optional WT PDB override</label>
             <input id="wtPdbInput" type="file" accept=".pdb,.ent,.txt">
-            <span class="file-hint">Upload a WT GB1 PDB from AlphaFold, Rosetta, MD, docking, or experiment.</span>
+            <span class="file-hint">Advanced: replace the bundled real GB1 PDB structure.</span>
           </div>
           <div>
-            <label for="mutPdbInput">Mutant predicted PDB</label>
+            <label for="mutPdbInput">Optional mutant predicted PDB</label>
             <input id="mutPdbInput" type="file" accept=".pdb,.ent,.txt">
-            <span class="file-hint">Upload the matching mutant PDB to view the real predicted coordinate change.</span>
+            <span class="file-hint">Advanced: load a mutant PDB from AlphaFold/Rosetta/MD/docking if you have one.</span>
           </div>
           <div class="wide">
-            <button id="loadPdbBtn" type="button" class="secondary-action">Load PDB Structures</button>
-            <button id="clearPdbBtn" type="button" class="secondary-action">Use built-in estimate</button>
-            <span id="pdbStatus" class="view-note">No PDB files loaded. The model is using the built-in visual estimate.</span>
+            <button id="loadPdbBtn" type="button" class="secondary-action">Load Optional PDB Files</button>
+            <button id="clearPdbBtn" type="button" class="secondary-action">Use bundled GB1 model</button>
+            <span id="pdbStatus" class="view-note">Loading bundled real GB1 PDB structure...</span>
           </div>
         </div>
 
@@ -1102,7 +1102,7 @@
         </div>
 
         <div class="note warn">
-          This 3D model estimates a local visual shape perturbation from amino-acid chemistry changes. It does not run molecular dynamics, docking, AlphaFold, Rosetta, or a true new folding prediction.
+          The WT view uses a bundled real GB1 PDB structure. The mutant view automatically shows an estimated local structure effect for the clicked mutation. Optional uploaded PDBs can replace this estimate if you run AlphaFold, Rosetta, MD, or docking externally.
         </div>
       </section>
     </section>
@@ -1116,6 +1116,7 @@
     const WT_BINDING = 1.0;
     const WT_SEQUENCE = "QYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTE";
     const GB1_BACKBONE = buildGb1Backbone();
+    const DEFAULT_WT_PDB = "data/gb1_wt_1pgb.pdb";
     const DEFAULT_CSVS = {
       singleFitness: "data/gb1_fitness_singles.csv",
       singleStability: "data/gb1_stability_deltaG.csv",
@@ -1153,7 +1154,7 @@
     const clickablePointTargets = new Map();
     const selectedPointByCanvas = new Map();
     const proteinModuleState = { rotX: -0.48, rotY: 0.72, zoom: 1.0, showEffect: true };
-    const pdbStructures = { wt: null, mut: null };
+    const pdbStructures = { wt: null, mut: null, wtSource: "bundled", mutSource: "automatic" };
     let activeModuleSelection = null;
 
     document.addEventListener("click", event => {
@@ -1190,6 +1191,7 @@
     registerProteinModuleEvents();
     initializeEmptyState();
     initializeProteinModuleEmpty();
+    loadBundledWtPdb();
 
     el("runBtn").addEventListener("click", async () => {
       try {
@@ -2101,11 +2103,15 @@
 
       el("loadPdbBtn").addEventListener("click", loadPdbStructures);
       el("clearPdbBtn").addEventListener("click", () => {
-        pdbStructures.wt = null;
         pdbStructures.mut = null;
+        pdbStructures.wtSource = "bundled";
+        pdbStructures.mutSource = "automatic";
         el("wtPdbInput").value = "";
         el("mutPdbInput").value = "";
-        el("pdbStatus").textContent = "No PDB files loaded. The model is using the built-in visual estimate.";
+        el("pdbStatus").textContent = pdbStructures.wt
+          ? `Using bundled real GB1 PDB structure (${pdbStructures.wt.atoms.length} CA atoms). Mutant view is generated automatically from the clicked mutation.`
+          : "Loading bundled real GB1 PDB structure...";
+        if (!pdbStructures.wt) loadBundledWtPdb();
         renderProteinModuleSummary();
         drawProteinModule();
       });
@@ -2131,10 +2137,30 @@
       const mutations = extractMutations(row, cfg);
       const applied = applyMutationsToWt(mutations);
       const label = mutationDisplayLabel(row, cfg);
+      if (!pdbStructures.mut || pdbStructures.mutSource === "automatic") {
+        pdbStructures.mut = null;
+        pdbStructures.mutSource = "automatic";
+      }
       activeModuleSelection = { row, kind, cfg, canvasId, mutations, applied, label };
       renderProteinModuleSummary();
       drawProteinModule();
       switchAppTab("moduleTab");
+    }
+
+    async function loadBundledWtPdb() {
+      try {
+        const response = await fetch(DEFAULT_WT_PDB);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const text = await response.text();
+        pdbStructures.wt = parsePdbCaAtoms(text, "Bundled GB1 WT structure (RCSB 1PGB)");
+        pdbStructures.wtSource = "bundled";
+        el("pdbStatus").textContent = `Using bundled real GB1 PDB structure (${pdbStructures.wt.atoms.length} CA atoms). Mutant view is generated automatically from the clicked mutation.`;
+        renderProteinModuleSummary();
+        drawProteinModule();
+      } catch (err) {
+        console.error(err);
+        el("pdbStatus").textContent = "Could not auto-load the bundled GB1 PDB. The app will use the simplified built-in structure map.";
+      }
     }
 
     function renderProteinModuleSummary() {
@@ -2148,14 +2174,16 @@
         ? "Estimated ranking, not measured binding"
         : "Measured database values";
       const shapeEffect = estimateShapeEffect(mutations);
-      const structureComparison = pdbStructures.wt && pdbStructures.mut
-        ? comparePdbStructures(pdbStructures.wt, pdbStructures.mut)
+      const displayMutantPdb = getDisplayMutantPdb();
+      const structureComparison = pdbStructures.wt && displayMutantPdb
+        ? comparePdbStructures(pdbStructures.wt, displayMutantPdb)
         : null;
+      const usingUploadedMutant = pdbStructures.mut && pdbStructures.mutSource === "uploaded";
       el("moduleStatus").innerHTML = `
         Showing <strong>${escapeHtml(label)}</strong> from ${escapeHtml(graphName)}.
         Yellow marks show where the selected mutation changes the displayed WT sequence.
         ${structureComparison
-          ? `Loaded PDB structures are being displayed. Shared-residue CA distance is <strong>${structureComparison.rmsd.toFixed(2)} Angstrom</strong> across ${structureComparison.count} residues.`
+          ? `${usingUploadedMutant ? "Uploaded mutant PDB" : "Automatically generated mutant model"} is being compared against the bundled real WT GB1 structure. Shared-residue CA distance is <strong>${structureComparison.rmsd.toFixed(2)} Angstrom</strong> across ${structureComparison.count} residues.`
           : `The mutant panel adds an estimated local backbone perturbation score of <strong>${shapeEffect.toFixed(2)}</strong>.`}
       `;
       el("moduleSummary").innerHTML = [
@@ -2190,7 +2218,7 @@
           <code class="sequence-text">${renderSequence(applied.sequence, applied.changedIndexes)}</code>
         </div>
         <div class="sequence-note">${structureComparison
-          ? `The canvases are using uploaded PDB coordinates. The distance score is centroid-aligned on shared CA atoms, so it is a quick visual comparison rather than a full structural superposition pipeline.`
+          ? `${usingUploadedMutant ? "The mutant canvas is using uploaded PDB coordinates." : "The mutant canvas is generated automatically by deforming the real WT GB1 PDB around selected mutation sites."} The distance score is centroid-aligned on shared CA atoms, so it is a quick visual comparison rather than a full structural superposition pipeline.`
           : `The mutant-side backbone uses a simple local perturbation model based on amino-acid volume, hydropathy, and charge changes. This makes likely affected regions visible, but it is not a real folded mutant structure.`}</div>
         ${warnings}
       `;
@@ -2201,6 +2229,12 @@
       drawProteinCanvas("mutProteinCanvas", true);
     }
 
+    function getDisplayMutantPdb() {
+      if (pdbStructures.mut) return pdbStructures.mut;
+      if (!pdbStructures.wt || !activeModuleSelection) return pdbStructures.wt;
+      return perturbPdbStructure(pdbStructures.wt, activeModuleSelection.mutations);
+    }
+
     function drawProteinCanvas(canvasId, mutated) {
       const canvas = el(canvasId);
       if (!canvas) return;
@@ -2208,7 +2242,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#f8fbfd";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const pdb = mutated ? pdbStructures.mut : pdbStructures.wt;
+      const pdb = mutated ? getDisplayMutantPdb() : pdbStructures.wt;
       if (pdb) {
         drawPdbStructureCanvas(ctx, canvas, pdb, mutated);
         return;
@@ -2304,20 +2338,32 @@
       const wtFile = el("wtPdbInput").files[0];
       const mutFile = el("mutPdbInput").files[0];
       if (!wtFile || !mutFile) {
-        el("pdbStatus").textContent = "Choose both a WT PDB and a mutant PDB before loading structures.";
-        return;
+        if (!wtFile && !mutFile) {
+          el("pdbStatus").textContent = pdbStructures.wt
+            ? "Already using the bundled real GB1 structure. Select a graph point to generate the mutant model automatically."
+            : "No PDB files selected. The app will try to use the bundled real GB1 structure.";
+          if (!pdbStructures.wt) loadBundledWtPdb();
+          return;
+        }
       }
       try {
-        const [wtText, mutText] = await Promise.all([wtFile.text(), mutFile.text()]);
-        const wt = parsePdbCaAtoms(wtText, wtFile.name);
-        const mut = parsePdbCaAtoms(mutText, mutFile.name);
-        if (wt.atoms.length < 4 || mut.atoms.length < 4) {
-          throw new Error("Each PDB needs at least 4 CA atoms to render a backbone trace.");
+        if (wtFile) {
+          const wt = parsePdbCaAtoms(await wtFile.text(), wtFile.name);
+          if (wt.atoms.length < 4) throw new Error("WT PDB needs at least 4 CA atoms to render a backbone trace.");
+          pdbStructures.wt = wt;
+          pdbStructures.wtSource = "uploaded";
         }
-        pdbStructures.wt = wt;
-        pdbStructures.mut = mut;
-        const comparison = comparePdbStructures(wt, mut);
-        el("pdbStatus").textContent = `Loaded ${wt.name} (${wt.atoms.length} CA atoms) and ${mut.name} (${mut.atoms.length} CA atoms). Shared CA distance: ${comparison.rmsd.toFixed(2)} A over ${comparison.count} residues.`;
+        if (mutFile) {
+          const mut = parsePdbCaAtoms(await mutFile.text(), mutFile.name);
+          if (mut.atoms.length < 4) throw new Error("Mutant PDB needs at least 4 CA atoms to render a backbone trace.");
+          pdbStructures.mut = mut;
+          pdbStructures.mutSource = "uploaded";
+        }
+        const displayMutant = getDisplayMutantPdb();
+        const comparison = pdbStructures.wt && displayMutant ? comparePdbStructures(pdbStructures.wt, displayMutant) : null;
+        el("pdbStatus").textContent = comparison
+          ? `Using ${pdbStructures.wt.name} (${pdbStructures.wt.atoms.length} CA atoms) and ${displayMutant.name} (${displayMutant.atoms.length} CA atoms). Shared CA distance: ${comparison.rmsd.toFixed(2)} A over ${comparison.count} residues.`
+          : "PDB file loaded.";
         renderProteinModuleSummary();
         drawProteinModule();
       } catch (err) {
@@ -2378,8 +2424,18 @@
 
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      ctx.strokeStyle = mutated ? "rgba(15, 118, 110, 0.78)" : "rgba(37, 99, 235, 0.78)";
-      ctx.lineWidth = 5;
+      ctx.strokeStyle = "rgba(15, 23, 42, 0.14)";
+      ctx.lineWidth = 11;
+      for (let i = 0; i < projected.length - 1; i++) {
+        const a = projected[i], b = projected[i + 1];
+        if (a.chain !== b.chain) continue;
+        ctx.beginPath();
+        ctx.moveTo(a.p.x, a.p.y);
+        ctx.lineTo(b.p.x, b.p.y);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = mutated ? "rgba(15, 118, 110, 0.88)" : "rgba(37, 99, 235, 0.88)";
+      ctx.lineWidth = 7;
       for (let i = 0; i < projected.length - 1; i++) {
         const a = projected[i], b = projected[i + 1];
         if (a.chain !== b.chain) continue;
@@ -2390,19 +2446,14 @@
       }
 
       const drawAtoms = [...projected].sort((a, b) => a.p.depth - b.p.depth);
-      for (const atom of drawAtoms) {
-        const selected = selectedResidues.has(atom.resSeq);
-        const radius = selected ? 9 : 3.8;
+      for (const atom of drawAtoms.filter(atom => selectedResidues.has(atom.resSeq))) {
         ctx.beginPath();
-        ctx.arc(atom.p.x, atom.p.y, radius * atom.p.scale, 0, Math.PI * 2);
-        ctx.fillStyle = selected ? "#f59e0b" : (mutated ? "#14b8a6" : "#60a5fa");
-        ctx.strokeStyle = selected ? "#7c2d12" : "rgba(15, 23, 42, 0.28)";
-        ctx.lineWidth = selected ? 2 : 0.5;
+        ctx.arc(atom.p.x, atom.p.y, 11 * atom.p.scale, 0, Math.PI * 2);
+        ctx.fillStyle = "#f59e0b";
+        ctx.strokeStyle = "#7c2d12";
+        ctx.lineWidth = 2;
         ctx.fill();
         ctx.stroke();
-      }
-
-      for (const atom of drawAtoms.filter(atom => selectedResidues.has(atom.resSeq))) {
         ctx.fillStyle = "#111827";
         ctx.font = "700 13px Segoe UI, Arial";
         ctx.fillText(`${atom.resName}${atom.resSeq}`, atom.p.x + 9, atom.p.y - 8);
@@ -2487,6 +2538,32 @@
         }
         return { ...point, x: point.x + dx, y: point.y + dy, z: point.z + dz };
       });
+    }
+
+    function perturbPdbStructure(pdb, mutations) {
+      const mutationEffects = mutations
+        .map(mutation => ({
+          ...mutation,
+          resSeq: mutation.pos - 1,
+          strength: mutationChemistryDelta(mutation),
+        }))
+        .filter(mutation => Number.isFinite(mutation.resSeq));
+      if (!mutationEffects.length) return { ...pdb, name: "Automatic mutant model from bundled WT PDB" };
+
+      const atoms = pdb.atoms.map(atom => {
+        let dx = 0, dy = 0, dz = 0;
+        for (const mutation of mutationEffects) {
+          const distance = atom.resSeq - mutation.resSeq;
+          const weight = Math.exp(-(distance * distance) / (2 * 4.8 * 4.8));
+          const direction = mutationDirection(mutation);
+          const amplitude = mutation.strength * weight;
+          dx += direction.x * amplitude * 1.15;
+          dy += direction.y * amplitude * 1.05 + Math.cos(distance * 0.85) * amplitude * 0.16;
+          dz += direction.z * amplitude * 1.1 + Math.sin(distance * 0.95) * amplitude * 0.16;
+        }
+        return { ...atom, x: atom.x + dx, y: atom.y + dy, z: atom.z + dz };
+      });
+      return { name: "Automatic mutant model from bundled WT PDB", atoms };
     }
 
     function mutationDirection(mutation) {
