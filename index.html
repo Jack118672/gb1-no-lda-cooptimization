@@ -171,6 +171,38 @@
       cursor: not-allowed;
     }
 
+    .plot-controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0 12px;
+    }
+
+    .plot-controls button {
+      width: auto;
+      height: 34px;
+      margin: 0;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .plot-controls button.active {
+      border-color: #245b7a;
+      background: #245b7a;
+      color: #fff;
+    }
+
+    .plot-controls .view-note {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
     .note {
       margin-top: 14px;
       padding: 10px 12px;
@@ -444,6 +476,11 @@
           </div>
           <span class="badge amber">Graph 1</span>
         </div>
+        <div class="plot-controls" aria-label="Graph 1 view controls">
+          <button type="button" class="active" data-zoom-target="plot1" data-zoom-mode="focus">Focus view</button>
+          <button type="button" data-zoom-target="plot1" data-zoom-mode="full">Full landscape</button>
+          <span class="view-note">Focus view zooms into the selected-candidate cluster.</span>
+        </div>
         <div class="plot-wrap"><canvas id="plot1" width="1100" height="650"></canvas></div>
         <div class="legend">
           <span><span class="dot gray"></span>All labeled single mutants</span>
@@ -464,6 +501,11 @@
             <p>Graph 2 answers: did the LM-selected single mutants actually improve measured binding and/or stability compared with the full measured dataset?</p>
           </div>
           <span class="badge blue">Graph 2</span>
+        </div>
+        <div class="plot-controls" aria-label="Graph 2 view controls">
+          <button type="button" class="active" data-zoom-target="plot2" data-zoom-mode="focus">Focus view</button>
+          <button type="button" data-zoom-target="plot2" data-zoom-mode="full">Full landscape</button>
+          <span class="view-note">Use full landscape when you want to inspect outliers.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot2" width="1100" height="650"></canvas></div>
         <div class="note">This graph uses measured database values only. It does not use LDA or a trained predictor.</div>
@@ -487,6 +529,11 @@
             <p>Graph 4 answers: after recombining selected singles, where do generated double mutants land against the measured double-mutant background?</p>
           </div>
           <span class="badge green">Graph 4</span>
+        </div>
+        <div class="plot-controls" aria-label="Graph 4 view controls">
+          <button type="button" class="active" data-zoom-target="plot4" data-zoom-mode="focus">Focus view</button>
+          <button type="button" data-zoom-target="plot4" data-zoom-mode="full">Full landscape</button>
+          <span class="view-note">Focus view crops away distant outliers so the main cluster is readable.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot4" width="1100" height="650"></canvas></div>
         <div class="legend">
@@ -544,8 +591,23 @@
 
     const BLOSUM = parseBlosum(BLOSUM_TEXT);
     const el = id => document.getElementById(id);
+    const plotConfigs = new Map();
+    const plotModes = { plot1: "focus", plot2: "focus", plot4: "focus" };
 
     initializeEmptyState();
+
+    document.addEventListener("click", event => {
+      const button = event.target.closest("[data-zoom-target]");
+      if (!button) return;
+      const canvasId = button.dataset.zoomTarget;
+      const mode = button.dataset.zoomMode;
+      plotModes[canvasId] = mode;
+      document.querySelectorAll(`[data-zoom-target="${canvasId}"]`).forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.zoomMode === mode);
+      });
+      const cfg = plotConfigs.get(canvasId);
+      if (cfg) drawScatter(canvasId, cfg);
+    });
 
     el("runBtn").addEventListener("click", async () => {
       try {
@@ -626,7 +688,7 @@
       el("metrics").innerHTML = [
         ["Upload", "3 required CSVs"],
         ["Optional", "ESM lm_score CSV"],
-        ["Then click", "Run no-LDA workflow"],
+        ["Then click", "Run"],
         ["Result", "Graphs 1, 2, and 4"],
       ].map(([value, label]) => `
         <div class="metric"><div class="value">${value}</div><div class="label">${label}</div></div>
@@ -658,7 +720,7 @@
       ctx.font = "15px Segoe UI, Arial";
       ctx.fillStyle = "#5d6b7a";
       ctx.fillText(message, canvas.width / 2, 320);
-      ctx.fillText("Upload the CSV files on the left, then click Run no-LDA workflow.", canvas.width / 2, 348);
+      ctx.fillText("Upload the CSV files on the left, then click Run.", canvas.width / 2, 348);
       ctx.textAlign = "left";
     }
 
@@ -876,6 +938,11 @@
     }
 
     function plotScatter(canvasId, cfg) {
+      plotConfigs.set(canvasId, cfg);
+      drawScatter(canvasId, cfg);
+    }
+
+    function drawScatter(canvasId, cfg) {
       const canvas = el(canvasId);
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -883,7 +950,8 @@
       const plotW = canvas.width - pad.left - pad.right;
       const plotH = canvas.height - pad.top - pad.bottom;
       const all = [...cfg.background, ...cfg.pareto, ...cfg.highlight].filter(p => Number.isFinite(p[cfg.x]) && Number.isFinite(p[cfg.y]));
-      const bounds = getBounds(all, cfg.x, cfg.y);
+      const mode = plotModes[canvasId] || "focus";
+      const bounds = getViewBounds(cfg, all, mode);
       const xMin = Math.min(0, bounds.xMin);
       const xMax = bounds.xMax;
       const yMin = bounds.yMin;
@@ -898,27 +966,75 @@
       drawGrid(ctx, pad, plotW, plotH);
       drawAxes(ctx, pad, plotW, plotH, cfg, xMin - xPad, xMax + xPad, yMin - yPad, yMax + yPad);
 
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(pad.left, pad.top, plotW, plotH);
+      ctx.clip();
       drawPoints(ctx, sampleRows(cfg.background, cfg.maxBackgroundDraw || 50000), scaleX, scaleY, "rgba(138,151,163,.24)", 2.2, false);
       drawOpenPoints(ctx, cfg.pareto, scaleX, scaleY, "#1f77b4", 7);
       drawPoints(ctx, cfg.highlight, scaleX, scaleY, "#d62728", 6.5, true);
+      ctx.restore();
 
       ctx.strokeStyle = "#111";
       ctx.setLineDash([7, 5]);
       const wtX = scaleX(WT_BINDING);
-      ctx.beginPath();
-      ctx.moveTo(wtX, pad.top);
-      ctx.lineTo(wtX, pad.top + plotH);
-      ctx.stroke();
+      if (wtX >= pad.left && wtX <= pad.left + plotW) {
+        ctx.beginPath();
+        ctx.moveTo(wtX, pad.top);
+        ctx.lineTo(wtX, pad.top + plotH);
+        ctx.stroke();
+      }
       ctx.setLineDash([]);
 
       ctx.fillStyle = "#17202a";
       ctx.font = "18px Segoe UI, Arial";
       ctx.fillText(cfg.title, pad.left, 28);
+      ctx.fillStyle = "#5d6b7a";
+      ctx.font = "12px Segoe UI, Arial";
+      ctx.fillText(mode === "focus" ? "Focus view: zoomed to selected candidates" : "Full landscape: all outliers included", pad.left, 43);
 
       ctx.font = "11px Segoe UI, Arial";
       cfg.highlight.slice(0, 5).forEach(row => {
-        ctx.fillText(String(row[cfg.highlightLabel] || ""), scaleX(row[cfg.x]) + 7, scaleY(row[cfg.y]) - 7);
+        const lx = scaleX(row[cfg.x]) + 7;
+        const ly = scaleY(row[cfg.y]) - 7;
+        if (lx > pad.left && lx < pad.left + plotW - 50 && ly > pad.top && ly < pad.top + plotH) {
+          ctx.fillText(String(row[cfg.highlightLabel] || ""), lx, ly);
+        }
       });
+    }
+
+    function getViewBounds(cfg, all, mode) {
+      if (mode === "full") return getBounds(all, cfg.x, cfg.y);
+
+      const highlights = cfg.highlight.filter(row => Number.isFinite(row[cfg.x]) && Number.isFinite(row[cfg.y]));
+      const anchor = highlights.length ? highlights : all;
+      const base = getBounds(anchor, cfg.x, cfg.y);
+      let xMin = Math.min(base.xMin, WT_BINDING);
+      let xMax = Math.max(base.xMax, WT_BINDING);
+      let yMin = base.yMin;
+      let yMax = base.yMax;
+
+      const isDoublePlot = cfg.x === "measuredDoubleFitness";
+      const minXRange = isDoublePlot ? 3.2 : 2.1;
+      const minYRange = isDoublePlot ? 6.0 : 4.2;
+      const xRange = Math.max(xMax - xMin, minXRange);
+      const yRange = Math.max(yMax - yMin, minYRange);
+      const xCenter = (xMin + xMax) / 2;
+      const yCenter = (yMin + yMax) / 2;
+
+      xMin = xCenter - xRange / 2;
+      xMax = xCenter + xRange / 2;
+      yMin = yCenter - yRange / 2;
+      yMax = yCenter + yRange / 2;
+
+      const xMargin = xRange * (isDoublePlot ? 0.18 : 0.22);
+      const yMargin = yRange * 0.18;
+      return {
+        xMin: xMin - xMargin,
+        xMax: xMax + xMargin,
+        yMin: yMin - yMargin,
+        yMax: yMax + yMargin,
+      };
     }
 
     function getBounds(rows, xKey, yKey) {
