@@ -1256,10 +1256,18 @@
 
         setStatus("Generating double mutants and validation background...");
         const generatedDoubles = buildGeneratedDoubles(selected, doubleFitness);
-        const highlightedDoubles = generatedDoubles
-          .filter(row => Number.isFinite(row.measuredDoubleFitness))
-          .sort((a, b) => b.doubleLmScore - a.doubleLmScore || b.measuredDoubleFitness - a.measuredDoubleFitness)
-          .slice(0, 30);
+        const measuredGeneratedDoubles = generatedDoubles
+          .filter(row => Number.isFinite(row.measuredDoubleFitness));
+        const bestMeasuredDouble = [...measuredGeneratedDoubles]
+          .sort((a, b) => b.measuredDoubleFitness - a.measuredDoubleFitness)[0];
+        const highlightedDoubles = takeTopRowsWithRequired(
+          measuredGeneratedDoubles
+            .sort((a, b) => b.doubleLmScore - a.doubleLmScore || b.measuredDoubleFitness - a.measuredDoubleFitness)
+            .slice(0, 30),
+          bestMeasuredDouble ? [bestMeasuredDouble] : [],
+          "doubleMutation",
+          30
+        );
         const doubleBackground = buildDoubleBackground(singles, doubleFitness);
         const multiMutants = buildMultiMutants(selected, maxOrder, multiLimit);
         const topMulti = [...multiMutants]
@@ -1556,6 +1564,26 @@
         ...row,
         bindingImprovesVsWt: row.fitness > WT_BINDING,
       }));
+    }
+
+    function takeTopRowsWithRequired(topRows, requiredRows, key, limit) {
+      const rows = [];
+      const seen = new Set();
+      for (const row of requiredRows) {
+        if (!row) continue;
+        const value = row[key];
+        if (seen.has(value)) continue;
+        rows.push(row);
+        seen.add(value);
+      }
+      for (const row of topRows) {
+        const value = row[key];
+        if (seen.has(value)) continue;
+        rows.push(row);
+        seen.add(value);
+        if (rows.length >= limit) break;
+      }
+      return rows.slice(0, limit);
     }
 
     function buildGeneratedDoubles(selected, doubleRows) {
