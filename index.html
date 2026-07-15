@@ -491,10 +491,8 @@
           <span class="badge amber">Graph 1</span>
         </div>
         <div class="plot-controls" aria-label="Graph 1 view controls">
-          <button type="button" class="active" data-zoom-target="plot1" data-zoom-mode="focus">Focus view</button>
-          <button type="button" data-zoom-target="plot1" data-zoom-mode="full">Full landscape</button>
           <button type="button" data-reset-target="plot1">Reset 3D view</button>
-          <span class="view-note">Drag to rotate. Scroll to zoom. Focus view zooms into the selected-candidate cluster.</span>
+          <span class="view-note">Drag to rotate. Scroll to zoom.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot1" width="1100" height="650"></canvas></div>
         <div class="legend">
@@ -519,10 +517,8 @@
           <span class="badge blue">Graph 2</span>
         </div>
         <div class="plot-controls" aria-label="Graph 2 view controls">
-          <button type="button" class="active" data-zoom-target="plot2" data-zoom-mode="focus">Focus view</button>
-          <button type="button" data-zoom-target="plot2" data-zoom-mode="full">Full landscape</button>
           <button type="button" data-reset-target="plot2">Reset 3D view</button>
-          <span class="view-note">Drag to rotate. Scroll to zoom. Use full landscape when you want to inspect outliers.</span>
+          <span class="view-note">Drag to rotate. Scroll to zoom.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot2" width="1100" height="650"></canvas></div>
         <div class="graph-help">
@@ -554,10 +550,8 @@
           <span class="badge green">Graph 4</span>
         </div>
         <div class="plot-controls" aria-label="Graph 4 view controls">
-          <button type="button" class="active" data-zoom-target="plot4" data-zoom-mode="focus">Focus view</button>
-          <button type="button" data-zoom-target="plot4" data-zoom-mode="full">Full landscape</button>
           <button type="button" data-reset-target="plot4">Reset 3D view</button>
-          <span class="view-note">Drag to rotate. Scroll to zoom. Focus view crops away distant outliers so the main cluster is readable.</span>
+          <span class="view-note">Drag to rotate. Scroll to zoom.</span>
         </div>
         <div class="plot-wrap"><canvas id="plot4" width="1100" height="650"></canvas></div>
         <div class="legend">
@@ -618,7 +612,6 @@
     const el = id => document.getElementById(id);
     const plotConfigs = new Map();
     const plot3dStates = new Map();
-    const plotModes = { plot1: "focus", plot2: "focus", plot4: "focus" };
 
     initializeEmptyState();
     register3dCanvasEvents();
@@ -632,17 +625,6 @@
         if (cfg) drawScatter(canvasId, cfg);
         return;
       }
-
-      const button = event.target.closest("[data-zoom-target]");
-      if (!button) return;
-      const canvasId = button.dataset.zoomTarget;
-      const mode = button.dataset.zoomMode;
-      plotModes[canvasId] = mode;
-      document.querySelectorAll(`[data-zoom-target="${canvasId}"]`).forEach(btn => {
-        btn.classList.toggle("active", btn.dataset.zoomMode === mode);
-      });
-      const cfg = plotConfigs.get(canvasId);
-      if (cfg) drawScatter(canvasId, cfg);
     });
 
     el("runBtn").addEventListener("click", async () => {
@@ -1064,8 +1046,7 @@
       const plotW = canvas.width - pad.left - pad.right;
       const plotH = canvas.height - pad.top - pad.bottom;
       const all = [...cfg.background, ...cfg.pareto, ...cfg.highlight].filter(p => Number.isFinite(p[cfg.x]) && Number.isFinite(p[cfg.y]));
-      const mode = plotModes[canvasId] || "focus";
-      const bounds = getViewBounds(cfg, all, mode);
+      const bounds = getBounds(all, cfg.x, cfg.y);
       const xMin = Math.min(0, bounds.xMin);
       const xMax = bounds.xMax;
       const yMin = bounds.yMin;
@@ -1105,7 +1086,7 @@
       ctx.fillText(cfg.title, pad.left, 28);
       ctx.fillStyle = "#5d6b7a";
       ctx.font = "12px Segoe UI, Arial";
-      ctx.fillText(mode === "focus" ? "Focus view: zoomed to selected candidates" : "Full landscape: all outliers included", pad.left, 43);
+      ctx.fillText("3D view: drag to rotate, scroll to zoom, reset button restores the starting angle.", pad.left, 43);
 
       ctx.font = "11px Segoe UI, Arial";
       cfg.highlight.slice(0, 5).forEach(row => {
@@ -1123,9 +1104,8 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const all = [...cfg.background, ...cfg.pareto, ...cfg.highlight].filter(row => has3d(row, cfg));
-      const mode = plotModes[canvasId] || "focus";
-      const xyBounds = getViewBounds(cfg, all, mode);
-      const zBounds = getZViewBounds(cfg, all, mode);
+      const xyBounds = getBounds(all, cfg.x, cfg.y);
+      const zBounds = getZViewBounds(cfg, all);
       const bounds = pad3dBounds({
         xMin: Math.min(0, xyBounds.xMin),
         xMax: xyBounds.xMax,
@@ -1155,18 +1135,15 @@
       ctx.fillText(cfg.title, 76, 28);
       ctx.fillStyle = "#5d6b7a";
       ctx.font = "12px Segoe UI, Arial";
-      ctx.fillText(`${mode === "focus" ? "Focus" : "Full"} 3D view: drag to rotate, scroll to zoom, reset button restores the starting angle.`, 76, 45);
+      ctx.fillText("3D view: drag to rotate, scroll to zoom, reset button restores the starting angle.", 76, 45);
     }
 
     function has3d(row, cfg) {
       return Number.isFinite(row[cfg.x]) && Number.isFinite(row[cfg.y]) && Number.isFinite(row[cfg.z]);
     }
 
-    function getZViewBounds(cfg, all, mode) {
-      const candidates = mode === "focus"
-        ? cfg.highlight.filter(row => has3d(row, cfg))
-        : all;
-      const anchor = candidates.length ? candidates : all;
+    function getZViewBounds(cfg, all) {
+      const anchor = all;
       let zMin = Infinity, zMax = -Infinity;
       for (const row of anchor) {
         const z = row[cfg.z];
@@ -1314,40 +1291,6 @@
         if (!label) continue;
         ctx.fillText(label, point.x + 8, point.y - 8);
       }
-    }
-
-    function getViewBounds(cfg, all, mode) {
-      if (mode === "full") return getBounds(all, cfg.x, cfg.y);
-
-      const highlights = cfg.highlight.filter(row => Number.isFinite(row[cfg.x]) && Number.isFinite(row[cfg.y]));
-      const anchor = highlights.length ? highlights : all;
-      const base = getBounds(anchor, cfg.x, cfg.y);
-      let xMin = Math.min(base.xMin, WT_BINDING);
-      let xMax = Math.max(base.xMax, WT_BINDING);
-      let yMin = base.yMin;
-      let yMax = base.yMax;
-
-      const isDoublePlot = cfg.x === "measuredDoubleFitness";
-      const minXRange = isDoublePlot ? 3.2 : 2.1;
-      const minYRange = isDoublePlot ? 6.0 : 4.2;
-      const xRange = Math.max(xMax - xMin, minXRange);
-      const yRange = Math.max(yMax - yMin, minYRange);
-      const xCenter = (xMin + xMax) / 2;
-      const yCenter = (yMin + yMax) / 2;
-
-      xMin = xCenter - xRange / 2;
-      xMax = xCenter + xRange / 2;
-      yMin = yCenter - yRange / 2;
-      yMax = yCenter + yRange / 2;
-
-      const xMargin = xRange * (isDoublePlot ? 0.18 : 0.22);
-      const yMargin = yRange * 0.18;
-      return {
-        xMin: xMin - xMargin,
-        xMax: xMax + xMargin,
-        yMin: yMin - yMargin,
-        yMax: yMax + yMargin,
-      };
     }
 
     function getBounds(rows, xKey, yKey) {
