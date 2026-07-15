@@ -17,7 +17,6 @@ https://jack118672.github.io/gb1-no-lda-cooptimization/downloads/GB1_Multi_Mutan
 - Recombines selected singles into double mutants and checks measured double-mutant binding.
 - Extends beyond doubles into capped triple/quadruple multi-mutant recommendations.
 - Provides an interactive 3D Mutation Model that automatically loads a bundled real GB1 WT PDB structure, renders it as a protein-cartoon ribbon with helix, beta-sheet, and loop regions, maps selected mutation sites onto that structure, and shows an estimated local mutant shape effect.
-- Provides an optional real-structure import path: upload WT and mutant PDB files from AlphaFold, Rosetta, molecular dynamics, docking, ColabFold, or experimental structures and compare the actual coordinate traces side by side.
 
 No LDA model is used in this current workflow, and there is intentionally no Graph 3.
 
@@ -32,7 +31,7 @@ Then:
 2. Click **Run**.
 3. Open **2. Outputs / Results** to view graphs, tables, and summaries.
 4. Click red or blue graph points to open **3. 3D Model**.
-5. The **3D Model** tab automatically uses a bundled real GB1 WT PDB structure. Optional: upload WT and mutant `.pdb` files to override the bundled/automatic model.
+5. The **3D Model** tab automatically uses a bundled real GB1 WT PDB structure and shows the before/after mutation comparison.
 
 ## Download As A Windows App
 
@@ -68,4 +67,3 @@ The app uses the files in `data/`:
 - Double-mutant stability is estimated additively as `stability_score_1 + stability_score_2`.
 - Triple and quadruple multi-mutants are ranked recommendations, not experimentally measured binding claims in the local dataset.
 - The 3D Mutation Model uses a bundled real GB1 WT PDB structure by default. It highlights mutation positions on that structure, compares WT vs mutated sequence, and automatically generates a local mutant shape effect around changed residues. It does not run molecular dynamics, docking, AlphaFold, Rosetta, or a true new folding prediction.
-- For true predicted mutant structures, run AlphaFold/Rosetta/MD/docking externally, export WT and mutant PDB files, then upload those files in the app's 3D Model tab. The app renders CA-backbone traces and reports a quick centroid-aligned shared-residue CA distance.

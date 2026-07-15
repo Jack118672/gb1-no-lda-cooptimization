@@ -1065,25 +1065,7 @@
 
         <div class="module-options">
           <label><input id="shapeEffectToggle" type="checkbox" checked> Show estimated local shape effect</label>
-          <span>The WT panel uses a bundled real GB1 PDB structure. The mutant panel is generated automatically from the selected mutation unless you load your own predicted mutant PDB.</span>
-        </div>
-
-        <div class="prediction-import">
-          <div>
-            <label for="wtPdbInput">Optional WT PDB override</label>
-            <input id="wtPdbInput" type="file" accept=".pdb,.ent,.txt">
-            <span class="file-hint">Advanced: replace the bundled real GB1 PDB structure.</span>
-          </div>
-          <div>
-            <label for="mutPdbInput">Optional mutant predicted PDB</label>
-            <input id="mutPdbInput" type="file" accept=".pdb,.ent,.txt">
-            <span class="file-hint">Advanced: load a mutant PDB from AlphaFold/Rosetta/MD/docking if you have one.</span>
-          </div>
-          <div class="wide">
-            <button id="loadPdbBtn" type="button" class="secondary-action">Load Optional PDB Files</button>
-            <button id="clearPdbBtn" type="button" class="secondary-action">Use bundled GB1 model</button>
-            <span id="pdbStatus" class="view-note">Loading bundled real GB1 PDB structure...</span>
-          </div>
+          <span id="pdbStatus">Loading bundled real GB1 PDB structure. The mutant panel is generated automatically from the selected mutation; no separate files are needed.</span>
         </div>
 
         <div class="module-grid">
@@ -2101,21 +2083,6 @@
         drawProteinModule();
       });
 
-      el("loadPdbBtn").addEventListener("click", loadPdbStructures);
-      el("clearPdbBtn").addEventListener("click", () => {
-        pdbStructures.mut = null;
-        pdbStructures.wtSource = "bundled";
-        pdbStructures.mutSource = "automatic";
-        el("wtPdbInput").value = "";
-        el("mutPdbInput").value = "";
-        el("pdbStatus").textContent = pdbStructures.wt
-          ? `Using bundled real GB1 PDB structure (${pdbStructures.wt.atoms.length} CA atoms). Mutant view is generated automatically from the clicked mutation.`
-          : "Loading bundled real GB1 PDB structure...";
-        if (!pdbStructures.wt) loadBundledWtPdb();
-        renderProteinModuleSummary();
-        drawProteinModule();
-      });
-
       document.querySelectorAll("[data-protein-action]").forEach(button => {
         button.addEventListener("click", () => {
           const action = button.dataset.proteinAction;
@@ -2334,44 +2301,6 @@
       }
     }
 
-    async function loadPdbStructures() {
-      const wtFile = el("wtPdbInput").files[0];
-      const mutFile = el("mutPdbInput").files[0];
-      if (!wtFile || !mutFile) {
-        if (!wtFile && !mutFile) {
-          el("pdbStatus").textContent = pdbStructures.wt
-            ? "Already using the bundled real GB1 structure. Select a graph point to generate the mutant model automatically."
-            : "No PDB files selected. The app will try to use the bundled real GB1 structure.";
-          if (!pdbStructures.wt) loadBundledWtPdb();
-          return;
-        }
-      }
-      try {
-        if (wtFile) {
-          const wt = parsePdbCaAtoms(await wtFile.text(), wtFile.name);
-          if (wt.atoms.length < 4) throw new Error("WT PDB needs at least 4 CA atoms to render a backbone trace.");
-          pdbStructures.wt = wt;
-          pdbStructures.wtSource = "uploaded";
-        }
-        if (mutFile) {
-          const mut = parsePdbCaAtoms(await mutFile.text(), mutFile.name);
-          if (mut.atoms.length < 4) throw new Error("Mutant PDB needs at least 4 CA atoms to render a backbone trace.");
-          pdbStructures.mut = mut;
-          pdbStructures.mutSource = "uploaded";
-        }
-        const displayMutant = getDisplayMutantPdb();
-        const comparison = pdbStructures.wt && displayMutant ? comparePdbStructures(pdbStructures.wt, displayMutant) : null;
-        el("pdbStatus").textContent = comparison
-          ? `Using ${pdbStructures.wt.name} (${pdbStructures.wt.atoms.length} CA atoms) and ${displayMutant.name} (${displayMutant.atoms.length} CA atoms). Shared CA distance: ${comparison.rmsd.toFixed(2)} A over ${comparison.count} residues.`
-          : "PDB file loaded.";
-        renderProteinModuleSummary();
-        drawProteinModule();
-      } catch (err) {
-        console.error(err);
-        el("pdbStatus").textContent = "Could not load PDB files: " + err.message;
-      }
-    }
-
     function parsePdbCaAtoms(text, name) {
       const atoms = [];
       for (const line of text.split(/\r?\n/)) {
@@ -2428,6 +2357,15 @@
 
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+      if (mutated && pdbStructures.wt && pdb !== pdbStructures.wt) {
+        const referenceBounds = pdbBounds(pdbStructures.wt.atoms);
+        const referenceProjected = pdbStructures.wt.atoms.map(atom => ({
+          ...atom,
+          ss: pdbSecondaryType(atom.resSeq),
+          p: projectPdbPoint(atom, referenceBounds, canvas),
+        }));
+        drawPdbReferenceLine(ctx, referenceProjected);
+      }
       drawPdbCartoonRibbon(ctx, projected, mutated);
 
       const drawAtoms = [...projected].sort((a, b) => a.p.depth - b.p.depth);
@@ -2450,6 +2388,30 @@
       ctx.fillStyle = "#5d6b7a";
       ctx.font = "12px Segoe UI, Arial";
       ctx.fillText(`${pdb.name}: ribbon/cartoon view from ${atoms.length} CA atoms. Drag/scroll to inspect angles.`, 20, 48);
+    }
+
+    function drawPdbReferenceLine(ctx, projected) {
+      const chains = new Map();
+      for (const atom of projected) {
+        if (!chains.has(atom.chain)) chains.set(atom.chain, []);
+        chains.get(atom.chain).push(atom);
+      }
+      ctx.save();
+      ctx.setLineDash([5, 7]);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(15, 23, 42, 0.42)";
+      ctx.lineWidth = 4;
+      for (const atoms of chains.values()) {
+        if (atoms.length < 2) continue;
+        ctx.beginPath();
+        ctx.moveTo(atoms[0].p.x, atoms[0].p.y);
+        for (let i = 1; i < atoms.length; i++) {
+          ctx.lineTo(atoms[i].p.x, atoms[i].p.y);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     function drawPdbCartoonRibbon(ctx, projected, mutated) {
