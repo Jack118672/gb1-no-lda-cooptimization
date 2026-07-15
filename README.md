@@ -18,7 +18,7 @@ https://jack118672.github.io/gb1-no-lda-cooptimization/downloads/GB1_Multi_Mutan
 - Extends beyond doubles into capped triple/quadruple multi-mutant recommendations.
 - Provides an interactive 3D Mutation Model that automatically loads a bundled real GB1 WT PDB structure, renders it as a protein-cartoon ribbon with helix, beta-sheet, and loop regions, maps selected mutation sites onto that structure, and shows an estimated local mutant shape effect.
 
-No LDA model is used in this current workflow, and there is intentionally no Graph 3.
+No LDA model is used in this current workflow.
 
 ## Use In A Browser
 

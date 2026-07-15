@@ -712,9 +712,48 @@
     }
 
     .table-wrap {
-      overflow-x: auto;
+      overflow: hidden;
       border: 1px solid var(--line);
       border-radius: 8px;
+      background: #fff;
+    }
+
+    .table-toggle {
+      width: 100%;
+      height: auto;
+      min-height: 44px;
+      margin: 0;
+      padding: 10px 12px;
+      border: 0;
+      border-radius: 0;
+      background: #f3f6fa;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .table-toggle strong {
+      font-size: 14px;
+    }
+
+    .table-toggle span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .table-scroll {
+      display: none;
+      overflow-x: auto;
+      border-top: 1px solid var(--line);
+    }
+
+    .table-wrap.expanded .table-scroll {
+      display: block;
     }
 
     table {
@@ -782,7 +821,7 @@
     <p>
       Run with the packaged GB1 CSV inputs, or upload replacement CSVs. The page scores single mutations with ESM/LM plausibility,
       selects Round-1 candidates, validates them against measured binding and stability values, then
-      recombines selected singles into double and higher-order multi-mutant candidates. No LDA model or graph 3 is used.
+      recombines selected singles into double and higher-order multi-mutant candidates. No LDA model is used.
     </p>
     <div class="hero-grid">
       <div class="workflow-card score"><strong>1. Score</strong><span>Use uploaded ESM `lm_score` values, or a fallback proxy if ESM scores are missing.</span></div>
@@ -965,11 +1004,11 @@
         <div class="section-title">
           <div>
             <h2>Double-Mutant Recombination Validation</h2>
-            <p>Graph 4 answers: after recombining selected singles, where do generated double mutants land against the measured double-mutant background?</p>
+            <p>Graph 3 answers: after recombining selected singles, where do generated double mutants land against the measured double-mutant background?</p>
           </div>
-          <span class="badge green">Graph 4</span>
+          <span class="badge green">Graph 3</span>
         </div>
-        <div class="plot-controls" aria-label="Graph 4 view controls">
+        <div class="plot-controls" aria-label="Graph 3 view controls">
           <button type="button" class="active" data-view-target="plot4" data-view-mode="3d">3D</button>
           <button type="button" data-view-target="plot4" data-view-mode="2d">2D</button>
           <button type="button" data-reset-target="plot4">Reset view</button>
@@ -1083,9 +1122,6 @@
           Select a candidate point to compare the original WT sequence against the mutated sequence.
         </div>
 
-        <div class="note warn">
-          The WT view uses a bundled real GB1 PDB structure and draws it as a protein-cartoon ribbon with helix, beta-sheet, and loop regions. The mutant view automatically shows an estimated local structure effect for the clicked mutation. Optional uploaded PDBs can replace this estimate if you run AlphaFold, Rosetta, MD, or docking externally.
-        </div>
       </section>
     </section>
   </main>
@@ -1143,6 +1179,16 @@
       const appTabButton = event.target.closest("[data-app-tab]");
       if (appTabButton) {
         switchAppTab(appTabButton.dataset.appTab);
+        return;
+      }
+
+      const tableButton = event.target.closest("[data-table-toggle]");
+      if (tableButton) {
+        const wrapper = tableButton.closest(".table-wrap");
+        const expanded = wrapper.classList.toggle("expanded");
+        tableButton.setAttribute("aria-expanded", String(expanded));
+        const state = tableButton.querySelector("[data-table-state]");
+        if (state) state.textContent = expanded ? "Click to collapse" : "Click to expand";
         return;
       }
 
@@ -1246,7 +1292,7 @@
         });
 
         plotScatter("plot4", {
-          title: "Graph 4 - Double-mutant recombination validation",
+          title: "Graph 3 - Double-mutant recombination validation",
           xLabel: "Measured double-mutant GB1 binding fitness",
           yLabel: "Additive stability score 1 + score 2",
           zLabel: "Additive ESM/LM score 1 + score 2",
@@ -1325,7 +1371,7 @@
       `).join("");
       drawEmptyPlot("plot1", "Graph 1 will show selected single mutants after you run the workflow.");
       drawEmptyPlot("plot2", "Graph 2 will validate selected singles using measured binding and stability.");
-      drawEmptyPlot("plot4", "Graph 4 will show generated double mutants after Round 2.");
+      drawEmptyPlot("plot4", "Graph 3 will show generated double mutants after Round 2.");
       drawEmptyPlot("plotMulti", "Multi-mutant graph will show capped triples/quads after you run the workflow.");
       ["plot1", "plot2", "plot4", "plotMulti"].forEach(canvasId => renderMutationDetail(canvasId, null));
       el("bestCandidate").innerHTML = `
@@ -1735,6 +1781,11 @@
 
     function renderTable(id, rows, columns) {
       if (!rows.length) { el(id).innerHTML = "<p class='note'>No rows.</p>"; return; }
+      const tableTitles = {
+        round1Table: "Selected Round-1 candidate table",
+        round2Table: "Generated double-mutant table",
+        multiTable: "Higher-order multi-mutant table",
+      };
       const labels = {
         mutation: "Mutation",
         fitness: "Measured binding",
@@ -1756,7 +1807,16 @@
       };
       const head = columns.map(c => `<th>${labels[c] || c}</th>`).join("");
       const body = rows.map(row => `<tr>${columns.map(c => `<td>${formatCell(row[c])}</td>`).join("")}</tr>`).join("");
-      el(id).innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+      el(id).classList.remove("expanded");
+      el(id).innerHTML = `
+        <button type="button" class="table-toggle" data-table-toggle aria-expanded="false">
+          <strong>${escapeHtml(tableTitles[id] || "Results table")}</strong>
+          <span>${rows.length} rows - <span data-table-state>Click to expand</span></span>
+        </button>
+        <div class="table-scroll">
+          <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+        </div>
+      `;
     }
 
     function formatCell(value) {
@@ -2134,7 +2194,7 @@
       if (!activeModuleSelection) return;
       const { row, cfg, canvasId, mutations, applied, label } = activeModuleSelection;
       const graphName = canvasId === "plotMulti" ? "Higher-order multi-mutant graph"
-        : canvasId === "plot4" ? "Graph 4 double-mutant validation"
+        : canvasId === "plot4" ? "Graph 3 double-mutant validation"
         : canvasId === "plot2" ? "Graph 2 measured Round-1 validation"
         : "Graph 1 single-mutant selection";
       const evidence = canvasId === "plotMulti"
