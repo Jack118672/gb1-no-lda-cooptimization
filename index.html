@@ -492,7 +492,7 @@
       vertical-align: -1px;
     }
 
-    .dot.gray { background: rgba(138,151,163,.45); }
+    .dot.gray { background: rgba(84,98,111,.70); }
     .dot.red { background: var(--red); border: 1px solid #111; }
     .dot.blue { background: white; border: 3px solid var(--blue); }
     .dot.wt {
@@ -594,7 +594,7 @@
         <div id="plot1Detail" class="mutation-detail empty"></div>
         <div class="legend">
           <span><span class="dot gray"></span>All labeled single mutants</span>
-          <span><span class="dot blue"></span>Measured Pareto frontier</span>
+          <span><span class="dot blue"></span>Measured Pareto frontier and translucent sheet</span>
           <span><span class="dot red"></span>LM-plausible selections</span>
           <span><span class="dot wt"></span>WT binding threshold = 1.0</span>
         </div>
@@ -622,7 +622,7 @@
         <div id="plot2Detail" class="mutation-detail empty"></div>
         <div class="legend">
           <span><span class="dot gray"></span>All labeled single mutants</span>
-          <span><span class="dot blue"></span>Measured Pareto frontier</span>
+          <span><span class="dot blue"></span>Measured Pareto frontier and translucent sheet</span>
           <span><span class="dot red"></span>Round-1 selections</span>
           <span><span class="dot wt"></span>WT binding threshold = 1.0</span>
         </div>
@@ -662,7 +662,7 @@
         <div id="plot4Detail" class="mutation-detail empty"></div>
         <div class="legend">
           <span><span class="dot gray"></span>All double mutants with measured binding + additive stability</span>
-          <span><span class="dot blue"></span>Validation Pareto frontier</span>
+          <span><span class="dot blue"></span>Validation Pareto frontier and translucent sheet</span>
           <span><span class="dot red"></span>Top no-LDA doubles</span>
           <span><span class="dot wt"></span>WT binding threshold = 1.0</span>
         </div>
@@ -1314,7 +1314,7 @@
       ctx.beginPath();
       ctx.rect(pad.left, pad.top, plotW, plotH);
       ctx.clip();
-      drawPoints(ctx, sampleRows(cfg.background, cfg.maxBackgroundDraw || 50000), scaleX, scaleY, "rgba(138,151,163,.24)", 2.2, false);
+      drawPoints(ctx, sampleRows(cfg.background, cfg.maxBackgroundDraw || 50000), scaleX, scaleY, "rgba(84,98,111,.44)", 2.5, false);
       drawOpenPoints(ctx, cfg.pareto, scaleX, scaleY, "#1f77b4", 7);
       drawPoints(ctx, cfg.highlight, scaleX, scaleY, "#d62728", 6.5, true);
       ctx.restore();
@@ -1388,6 +1388,7 @@
 
       draw3dAxes(ctx, cfg, bounds, dataBounds, state, center, canvas);
       drawWtBindingThreshold(ctx, cfg, bounds, state, center);
+      drawParetoSheet(ctx, cfg, bounds, state, center);
       for (const point of drawRows) draw3dPoint(ctx, point);
       drawSelectedPointRing(ctx, drawRows, selectedPointByCanvas.get(canvasId));
       label3dHighlights(ctx, drawRows.filter(p => p.kind === "highlight").slice(-7), cfg.highlightLabel);
@@ -1549,11 +1550,43 @@
       ctx.restore();
     }
 
+    function drawParetoSheet(ctx, cfg, bounds, state, center) {
+      const rows = cfg.pareto
+        .filter(row => has3d(row, cfg) && pointIn3dBounds(row, cfg, bounds))
+        .sort((a, b) => a[cfg.x] - b[cfg.x] || a[cfg.y] - b[cfg.y] || a[cfg.z] - b[cfg.z]);
+      if (rows.length < 2) return;
+
+      const top = rows.map(row => project3d(row[cfg.x], row[cfg.y], row[cfg.z], bounds, state, center));
+      const bottom = rows.map(row => project3d(row[cfg.x], bounds.yMin, row[cfg.z], bounds, state, center));
+
+      ctx.save();
+      ctx.fillStyle = "rgba(31, 119, 180, 0.13)";
+      ctx.strokeStyle = "rgba(31, 119, 180, 0.72)";
+      ctx.lineWidth = 1.6;
+
+      ctx.beginPath();
+      ctx.moveTo(top[0].x, top[0].y);
+      for (const point of top.slice(1)) ctx.lineTo(point.x, point.y);
+      for (const point of bottom.slice().reverse()) ctx.lineTo(point.x, point.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = "#1f77b4";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(top[0].x, top[0].y);
+      for (const point of top.slice(1)) ctx.lineTo(point.x, point.y);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
     function draw3dPoint(ctx, point) {
       if (point.kind === "background") {
-        ctx.fillStyle = `rgba(138,151,163,${0.12 + point.perspective * 0.05})`;
+        ctx.fillStyle = `rgba(84,98,111,${0.28 + point.perspective * 0.10})`;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 2.4 * point.perspective, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, 2.7 * point.perspective, 0, Math.PI * 2);
         ctx.fill();
         return;
       }
