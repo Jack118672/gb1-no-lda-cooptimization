@@ -1340,14 +1340,15 @@
       const all = [...cfg.background, ...cfg.pareto, ...cfg.highlight].filter(row => has3d(row, cfg));
       const xyBounds = getBounds(all, cfg.x, cfg.y);
       const zBounds = getZViewBounds(cfg, all);
-      const bounds = pad3dBounds({
+      const dataBounds = {
         xMin: Math.min(0, xyBounds.xMin),
         xMax: xyBounds.xMax,
         yMin: xyBounds.yMin,
         yMax: xyBounds.yMax,
         zMin: zBounds.zMin,
         zMax: zBounds.zMax,
-      });
+      };
+      const bounds = pad3dBounds(dataBounds);
 
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1370,7 +1371,7 @@
           hitRadius: point.kind === "pareto" ? 14 : 13,
         })));
 
-      draw3dAxes(ctx, cfg, bounds, state, center, canvas);
+      draw3dAxes(ctx, cfg, bounds, dataBounds, state, center, canvas);
       for (const point of drawRows) draw3dPoint(ctx, point);
       drawSelectedPointRing(ctx, drawRows, selectedPointByCanvas.get(canvasId));
       label3dHighlights(ctx, drawRows.filter(p => p.kind === "highlight").slice(-7), cfg.highlightLabel);
@@ -1455,7 +1456,7 @@
       return ((value - min) / range) * 2 - 1;
     }
 
-    function draw3dAxes(ctx, cfg, bounds, state, center, canvas) {
+    function draw3dAxes(ctx, cfg, bounds, dataBounds, state, center, canvas) {
       const origin = project3d(bounds.xMin, bounds.yMin, bounds.zMin, bounds, state, center);
       const xEnd = project3d(bounds.xMax, bounds.yMin, bounds.zMin, bounds, state, center);
       const yEnd = project3d(bounds.xMin, bounds.yMax, bounds.zMin, bounds, state, center);
@@ -1483,9 +1484,9 @@
 
       ctx.fillStyle = "#17202a";
       ctx.font = "12px Segoe UI, Arial";
-      ctx.fillText(`${cfg.xLabel}: ${bounds.xMin.toFixed(1)} to ${bounds.xMax.toFixed(1)}`, 76, canvas.height - 54);
-      ctx.fillText(`${cfg.yLabel}: ${bounds.yMin.toFixed(1)} to ${bounds.yMax.toFixed(1)}`, 76, canvas.height - 34);
-      ctx.fillText(`${cfg.zLabel}: ${bounds.zMin.toFixed(2)} to ${bounds.zMax.toFixed(2)}`, 76, canvas.height - 14);
+      ctx.fillText(`${cfg.xLabel}: ${dataBounds.xMin.toFixed(1)} to ${dataBounds.xMax.toFixed(1)}`, 76, canvas.height - 54);
+      ctx.fillText(`${cfg.yLabel}: ${dataBounds.yMin.toFixed(1)} to ${dataBounds.yMax.toFixed(1)}`, 76, canvas.height - 34);
+      ctx.fillText(`${cfg.zLabel}: ${dataBounds.zMin.toFixed(2)} to ${dataBounds.zMax.toFixed(2)}`, 76, canvas.height - 14);
 
       ctx.font = "700 13px Segoe UI, Arial";
       ctx.fillStyle = "#245b7a";
