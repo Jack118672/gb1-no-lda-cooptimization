@@ -918,6 +918,17 @@
       <section>
         <div class="section-title">
           <div>
+            <h2>Random-Choice Check</h2>
+            <p>This tests whether the selected candidates beat a simple random-selection baseline from the measured database.</p>
+          </div>
+          <span class="badge blue">Statistics</span>
+        </div>
+        <div id="randomStats" class="interpretation-panel"></div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
             <h2>Best Candidate</h2>
             <p>This card gives the audience the fastest single takeaway from the run.</p>
           </div>
@@ -1256,6 +1267,7 @@
           .slice(0, 30);
 
         renderMetrics(singles, selected, generatedDoubles, doubleBackground);
+        renderRandomChoiceStats(singles, selected, generatedDoubles, doubleBackground);
         renderBestCandidate(generatedDoubles, selected);
         renderInterpretations(singles, selected, generatedDoubles, doubleBackground);
         renderMultiInterpretation(multiMutants, topMulti, maxOrder, multiLimit);
@@ -1365,7 +1377,7 @@
         ["Upload", "3 required CSVs"],
         ["Optional", "ESM lm_score CSV"],
         ["Then click", "Run"],
-        ["Result", "Graphs 1, 2, and 4"],
+        ["Result", "Graphs 1, 2, and 3"],
       ].map(([value, label]) => `
         <div class="metric"><div class="value">${value}</div><div class="label">${label}</div></div>
       `).join("");
@@ -1381,6 +1393,7 @@
         </div>
         <div class="best-note">This preview card will highlight the strongest generated double mutant and explain why it matters.</div>
       `;
+      el("randomStats").innerHTML = "<h3>Random-choice check</h3><ul><li>Run the workflow to calculate p-values against random selection from the measured database.</li></ul>";
       ["plot1", "plot2", "plot4"].forEach(canvasId => {
         const panel = el(`${canvasId}Interpretation`);
         if (panel) panel.innerHTML = "<h3>Interpretation</h3><ul><li>Run the workflow to generate automatic result takeaways.</li></ul>";
@@ -1704,6 +1717,106 @@
           <div class="explain">${explain}</div>
         </div>
       `).join("");
+    }
+
+    function renderRandomChoiceStats(singles, selected, generatedDoubles, doubleBackground) {
+      const singlesN = singles.length;
+      const singlesK = singles.filter(row => row.fitness > WT_BINDING).length;
+      const selectedN = selected.length;
+      const selectedK = selected.filter(row => row.fitness > WT_BINDING).length;
+      const round1P = hypergeometricUpperTail(singlesN, singlesK, selectedN, selectedK);
+      const round1Fold = enrichmentFold(selectedK, selectedN, singlesK, singlesN);
+
+      const measuredDoubles = generatedDoubles.filter(row => Number.isFinite(row.measuredDoubleFitness));
+      const doubleN = doubleBackground.length;
+      const doubleK = doubleBackground.filter(row => row.measuredDoubleFitness > WT_BINDING).length;
+      const generatedMeasuredN = measuredDoubles.length;
+      const generatedMeasuredK = measuredDoubles.filter(row => row.measuredDoubleFitness > WT_BINDING).length;
+      const round2P = hypergeometricUpperTail(doubleN, doubleK, generatedMeasuredN, generatedMeasuredK);
+      const round2Fold = enrichmentFold(generatedMeasuredK, generatedMeasuredN, doubleK, doubleN);
+
+      const bestMeasured = [...measuredDoubles]
+        .sort((a, b) => b.measuredDoubleFitness - a.measuredDoubleFitness)[0];
+      const bestTailK = bestMeasured
+        ? doubleBackground.filter(row => row.measuredDoubleFitness >= bestMeasured.measuredDoubleFitness).length
+        : 0;
+      const bestTailP = bestMeasured && generatedMeasuredN
+        ? probabilityAtLeastOneSuccess(doubleN, bestTailK, generatedMeasuredN)
+        : NaN;
+
+      const verdict = [
+        round1P <= 0.05 ? "Round 1 is statistically enriched for above-WT singles." : "Round 1 is not statistically enriched above random for binding hits.",
+        round2P <= 0.05 ? "Round 2 is statistically enriched for above-WT measured doubles." : "Round 2 is not statistically enriched above random by above-WT hit count.",
+        Number.isFinite(bestTailP) && bestTailP <= 0.05
+          ? "The best generated double is rare enough to be unlikely under random sampling."
+          : "The best generated double is useful, but this tail test does not prove it could not appear by random sampling.",
+      ];
+
+      el("randomStats").innerHTML = `
+        <h3>Random-choice check</h3>
+        <ul>
+          <li><strong>Round 1 binding hits:</strong> ${selectedK}/${selectedN} selected singles beat WT versus ${singlesK}/${singlesN} in the measured single-mutant background. Enrichment = ${formatCell(round1Fold)}x; one-sided hypergeometric p = ${formatPValue(round1P)}.</li>
+          <li><strong>Round 2 binding hits:</strong> ${generatedMeasuredK}/${generatedMeasuredN} generated doubles with measured binding beat WT versus ${doubleK.toLocaleString()}/${doubleN.toLocaleString()} in the measured double-mutant background. Enrichment = ${formatCell(round2Fold)}x; one-sided hypergeometric p = ${formatPValue(round2P)}.</li>
+          <li><strong>Best-double tail check:</strong> ${bestMeasured ? `${escapeHtml(bestMeasured.doubleMutation)} reaches ${formatCell(bestMeasured.measuredDoubleFitness)}x WT; ${bestTailK.toLocaleString()} measured background doubles are at least this strong. Randomly drawing ${generatedMeasuredN} measured doubles gives p = ${formatPValue(bestTailP)} of seeing at least one this strong.` : "No measured generated double was available for a best-candidate tail test."}</li>
+        </ul>
+        <p><strong>Interpretation:</strong> ${verdict.join(" ")} This means the current app is best presented as a transparent validation and prioritization prototype, not as statistical proof that ESM selection beats random choice on this GB1 binding-only benchmark.</p>
+      `;
+    }
+
+    function enrichmentFold(successes, draws, backgroundSuccesses, backgroundSize) {
+      const selectedRate = draws ? successes / draws : NaN;
+      const backgroundRate = backgroundSize ? backgroundSuccesses / backgroundSize : NaN;
+      return backgroundRate ? selectedRate / backgroundRate : NaN;
+    }
+
+    function hypergeometricUpperTail(populationSize, successStates, draws, observedSuccesses) {
+      if (!populationSize || !draws || observedSuccesses < 0) return NaN;
+      const maxK = Math.min(successStates, draws);
+      const minK = Math.max(0, draws - (populationSize - successStates));
+      if (observedSuccesses <= minK) return 1;
+      if (observedSuccesses > maxK) return 0;
+      const logs = [];
+      for (let k = observedSuccesses; k <= maxK; k++) {
+        logs.push(
+          logCombination(successStates, k) +
+          logCombination(populationSize - successStates, draws - k) -
+          logCombination(populationSize, draws)
+        );
+      }
+      return clampProbability(expLogSum(logs));
+    }
+
+    function probabilityAtLeastOneSuccess(populationSize, successStates, draws) {
+      if (!populationSize || !draws || successStates <= 0) return 0;
+      if (successStates >= populationSize) return 1;
+      const logNoSuccess = logCombination(populationSize - successStates, draws) - logCombination(populationSize, draws);
+      return clampProbability(1 - Math.exp(logNoSuccess));
+    }
+
+    function logCombination(n, k) {
+      if (k < 0 || k > n) return -Infinity;
+      const limit = Math.min(k, n - k);
+      let total = 0;
+      for (let i = 1; i <= limit; i++) total += Math.log(n - limit + i) - Math.log(i);
+      return total;
+    }
+
+    function expLogSum(logs) {
+      const finite = logs.filter(Number.isFinite);
+      if (!finite.length) return 0;
+      const max = Math.max(...finite);
+      return Math.exp(max) * finite.reduce((sum, value) => sum + Math.exp(value - max), 0);
+    }
+
+    function clampProbability(value) {
+      if (!Number.isFinite(value)) return NaN;
+      return Math.max(0, Math.min(1, value));
+    }
+
+    function formatPValue(value) {
+      if (!Number.isFinite(value)) return "n/a";
+      if (value < 0.001) return value.toExponential(2);
+      return value.toFixed(3);
     }
 
     function renderBestCandidate(highlightedDoubles, selectedSingles) {
