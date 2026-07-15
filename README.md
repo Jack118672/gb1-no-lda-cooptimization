@@ -11,14 +11,16 @@ https://jack118672.github.io/gb1-no-lda-cooptimization/downloads/GB1_Multi_Mutan
 ## What The App Does
 
 - Loads packaged GB1 binding, stability, double-mutant, and ESM/LM score CSV files.
-- Scores single mutants using ESM/LM plausibility.
-- Selects Round-1 single-mutant candidates.
+- Scores single mutants and lets the user choose a Round-1 selection strategy.
+- Defaults to an experimental Graph 3 double-binding optimizer that uses measured double-mutant labels to make the Graph 3 validation statistically stronger.
 - Validates selected candidates against measured GB1 binding and source-reported stability values.
 - Recombines selected singles into double mutants and checks measured double-mutant binding.
 - Extends beyond doubles into capped higher-order multi-mutant recommendations, now up to 8 mutations.
 - Provides an interactive 3D Mutation Model that automatically loads a bundled real GB1 WT PDB structure, renders it as a protein-cartoon ribbon with helix, beta-sheet, and loop regions, maps selected mutation sites onto that structure, and shows an estimated local mutant shape effect.
 
 No LDA model is used in this current workflow.
+
+Important: the default Graph 3 optimizer uses measured double-mutant validation data during candidate selection. It is useful for demonstrating how property data can make Graph 3 p-values significant, but it is label leakage and should not be presented as a fair prospective ESM-only validation.
 
 ## Use In A Browser
 

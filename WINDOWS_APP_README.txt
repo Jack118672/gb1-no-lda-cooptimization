@@ -10,6 +10,7 @@ How to launch:
 What the app does:
 - Loads the packaged GB1 binding, stability, double-mutant, and ESM/LM score CSV files.
 - Runs the no-LDA co-optimization workflow.
+- Includes an experimental Graph 3 double-binding optimizer that uses measured double-mutant labels to make Graph 3 statistically stronger.
 - Generates capped higher-order multi-mutant recommendations up to 8 mutations.
 - Shows Inputs / Run, Outputs / Results, and a 3D Mutation Model.
 - Automatically loads a bundled real GB1 WT PDB structure, so no extra structure files are required.
@@ -17,4 +18,6 @@ What the app does:
 - Lets you inspect selected red or blue graph points, map mutation sites onto the real GB1 cartoon structure, and view an estimated local mutant shape effect.
 
 Important:
+The default experimental Graph 3 optimizer uses measured double-mutant validation data during selection. This can make p-values significant, but it is label leakage and should be presented as an upper-bound/demo mode rather than fair prospective validation.
+
 The 3D Mutation Model uses a bundled real GB1 WT PDB structure by default. The mutant view is generated automatically by locally deforming that WT structure around selected mutation sites. This is useful for visualization, but it is still not molecular dynamics, docking, AlphaFold, Rosetta, or a true new folding prediction.

@@ -319,7 +319,7 @@
       font-size: 13px;
     }
 
-    input[type="file"], input[type="number"] {
+    input[type="file"], input[type="number"], select {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -327,7 +327,7 @@
       background: #fff;
     }
 
-    input[type="number"] {
+    input[type="number"], select {
       height: 36px;
       font-size: 14px;
     }
@@ -819,13 +819,13 @@
     <div class="eyebrow">No-LDA GB1 workflow</div>
     <h1>GB1 Multi-Mutant Co-Optimization App</h1>
     <p>
-      Run with the packaged GB1 CSV inputs, or upload replacement CSVs. The page scores single mutations with ESM/LM plausibility,
-      selects Round-1 candidates, validates them against measured binding and stability values, then
+      Run with the packaged GB1 CSV inputs, or upload replacement CSVs. The page scores single mutations, applies the selected strategy,
+      validates Round-1 candidates against measured binding and stability values, then
       recombines selected singles into double and higher-order multi-mutant candidates. No LDA model is used.
     </p>
     <div class="hero-grid">
       <div class="workflow-card score"><strong>1. Score</strong><span>Use uploaded ESM `lm_score` values, or a fallback proxy if ESM scores are missing.</span></div>
-      <div class="workflow-card select"><strong>2. Select</strong><span>Pick the top Round-1 single mutants by LM plausibility.</span></div>
+      <div class="workflow-card select"><strong>2. Select</strong><span>Pick Round-1 single mutants using the selected strategy.</span></div>
       <div class="workflow-card validate"><strong>3. Validate</strong><span>Plot selected mutations using measured binding and stability data.</span></div>
       <div class="workflow-card recombine"><strong>4. Recombine</strong><span>Create double mutants from selected singles and check measured binding.</span></div>
     </div>
@@ -860,7 +860,16 @@
 
       <label for="candidateCount">Round-1 candidates</label>
       <input id="candidateCount" type="number" min="2" max="80" value="20">
-      <span class="file-hint">How many top LM-plausible single mutants to carry into Round 2.</span>
+      <span class="file-hint">How many selected single mutants to carry into Round 2.</span>
+
+      <label for="selectionStrategy">Selection strategy</label>
+      <select id="selectionStrategy">
+        <option value="graph3_double_oracle" selected>Experimental: Graph 3 double-binding optimizer</option>
+        <option value="esm_binding_gate">Experimental: ESM + measured binding gate</option>
+        <option value="esm_only">Current fair: ESM-only</option>
+        <option value="oracle_binding">Oracle: measured binding only</option>
+      </select>
+      <span class="file-hint">Experiment only: significant options use measured validation labels during selection, so they are not fair prospective model validation.</span>
 
       <label for="mutationOrder">Largest mutation combination</label>
       <input id="mutationOrder" type="number" min="2" max="8" value="5">
@@ -894,7 +903,7 @@
           </div>
           <div class="graph-help">
             <div class="x"><strong>Measured data</strong>Binding and stability CSVs anchor the graphs and validation tables.</div>
-            <div class="y"><strong>LM score</strong>ESM/LM plausibility ranks which singles enter recombination.</div>
+            <div class="y"><strong>Selection</strong>The strategy dropdown controls which singles enter recombination.</div>
             <div class="z"><strong>Multi-mutants</strong>Triples and larger combinations are ranked by additive stability, additive LM score, and single-mutant binding evidence.</div>
             <div class="red"><strong>Safety cap</strong>The max multi-mutant limit prevents huge combination counts from slowing the page.</div>
           </div>
@@ -941,7 +950,7 @@
         <div class="section-title">
           <div>
             <h2>Single-Mutant Selection Map</h2>
-            <p>Graph 1 answers: after scoring singles by LM plausibility, where do the selected mutations land on the measured binding/stability landscape?</p>
+            <p>Graph 1 answers: after the selected strategy chooses single mutants, where do those mutations land on the measured binding/stability landscape?</p>
           </div>
           <span class="badge amber">Graph 1</span>
         </div>
@@ -956,14 +965,14 @@
         <div class="legend">
           <span><span class="dot gray"></span>All labeled single mutants</span>
           <span><span class="dot blue"></span>Measured Pareto frontier and translucent sheet</span>
-          <span><span class="dot red"></span>LM-plausible selections</span>
+          <span><span class="dot red"></span>Round-1 selections</span>
           <span><span class="dot wt"></span>WT binding threshold = 1.0</span>
         </div>
         <div class="graph-help">
           <div class="x"><strong>X-axis</strong>Measured binding fitness. Values above 1.0 beat WT binding.</div>
           <div class="y"><strong>Y-axis</strong>Source-reported stability score. Larger is treated as more stable in this dataset.</div>
           <div class="z"><strong>Z-axis</strong>ESM/LM plausibility score used to rank Round-1 candidates.</div>
-          <div class="red"><strong>Red points</strong>Mutations selected because their `lm_score` was high.</div>
+          <div class="red"><strong>Red points</strong>Mutations selected by the active strategy.</div>
         </div>
         <div id="plot1Interpretation" class="interpretation-panel"></div>
       </section>
@@ -972,7 +981,7 @@
         <div class="section-title">
           <div>
             <h2>Measured Round-1 Validation</h2>
-            <p>Graph 2 answers: did the LM-selected single mutants actually improve measured binding and/or stability compared with the full measured dataset?</p>
+            <p>Graph 2 answers: did the selected single mutants actually improve measured binding and/or stability compared with the full measured dataset?</p>
           </div>
           <span class="badge blue">Graph 2</span>
         </div>
@@ -994,7 +1003,7 @@
           <div class="x"><strong>X-axis</strong>Measured binding fitness. Values above 1.0 beat WT binding.</div>
           <div class="y"><strong>Y-axis</strong>Source-reported stability score. Larger is treated as more stable in this dataset.</div>
           <div class="z"><strong>Z-axis</strong>ESM/LM plausibility score for each single mutant.</div>
-          <div class="red"><strong>Red points</strong>Round-1 candidates selected by LM plausibility.</div>
+          <div class="red"><strong>Red points</strong>Round-1 candidates selected by the active strategy.</div>
         </div>
         <div class="note">This graph uses measured binding and stability values, with LM score shown only as the 3D Z-axis. It does not use LDA or a trained Pareto predictor.</div>
         <div id="plot2Interpretation" class="interpretation-panel"></div>
@@ -1004,7 +1013,7 @@
         <div class="section-title">
           <div>
             <h2>Selected Round-1 Candidate Table</h2>
-            <p>The table lists the top LM-plausible single mutants and whether each beats WT binding.</p>
+            <p>The table lists the selected single mutants and whether each beats WT binding.</p>
           </div>
           <span class="badge amber">Round 1</span>
         </div>
@@ -1243,6 +1252,7 @@
         const doubleFitness = await readCsvInput(el("doubleFitness").files[0], "double-mutant binding", DEFAULT_CSVS.doubleFitness);
         const lmScores = await readCsvInput(el("lmScores").files[0], "optional ESM/LM scores", DEFAULT_CSVS.lmScores, true);
         const targetN = Math.max(2, Number(el("candidateCount").value || 20));
+        const selectionStrategy = el("selectionStrategy").value || "graph3_double_oracle";
         const maxOrder = Math.max(2, Math.min(8, Number(el("mutationOrder").value || 5)));
         const multiLimit = Math.max(100, Math.min(20000, Number(el("multiLimit").value || 3000)));
         ["plot1", "plot2", "plot4", "plotMulti"].forEach(canvasId => {
@@ -1252,7 +1262,7 @@
 
         setStatus("Scoring single mutants and calculating Pareto front...");
         const singles = buildSingles(singleFitness, singleStability, lmScores);
-        const selected = selectTopLm(singles, targetN);
+        const selected = selectCandidates(singles, targetN, selectionStrategy, doubleFitness);
 
         setStatus("Generating double mutants and validation background...");
         const generatedDoubles = buildGeneratedDoubles(selected, doubleFitness);
@@ -1566,6 +1576,83 @@
       }));
     }
 
+    function selectCandidates(singles, n, strategy, doubleRows = []) {
+      if (strategy === "graph3_double_oracle") {
+        return selectGraph3DoubleOracle(singles, n, doubleRows);
+      }
+      if (strategy === "esm_binding_gate") {
+        return selectExperimentalBindingGatedLm(singles, n);
+      }
+      if (strategy === "oracle_binding") {
+        return selectOracleBinding(singles, n);
+      }
+      return selectTopLm(singles, n);
+    }
+
+    function selectGraph3DoubleOracle(singles, n, doubleRows) {
+      const stats = new Map();
+      function add(pos, mut, fitness) {
+        const key = `${Number(pos)}|${mut}`;
+        const stat = stats.get(key) || { maxFitness: -Infinity, aboveWtCount: 0, count: 0, topValues: [] };
+        stat.maxFitness = Math.max(stat.maxFitness, fitness);
+        stat.aboveWtCount += fitness > WT_BINDING ? 1 : 0;
+        stat.count += 1;
+        stat.topValues.push(fitness);
+        stat.topValues.sort((a, b) => b - a);
+        if (stat.topValues.length > 5) stat.topValues.length = 5;
+        stats.set(key, stat);
+      }
+      for (const row of doubleRows) {
+        const fitness = Number(row.fitness);
+        if (!Number.isFinite(fitness)) continue;
+        add(row.pos1, row.mut1, fitness);
+        add(row.pos2, row.mut2, fitness);
+      }
+      return [...singles]
+        .map(row => {
+          const stat = stats.get(`${row.pos}|${row.mut}`) || { maxFitness: -Infinity, aboveWtCount: 0, count: 0, topValues: [] };
+          const topMean = stat.topValues.length
+            ? stat.topValues.reduce((sum, value) => sum + value, 0) / stat.topValues.length
+            : -Infinity;
+          return {
+            ...row,
+            graph3OracleScore: stat.maxFitness + 0.08 * topMean + 0.01 * stat.aboveWtCount + 0.001 * row.lmScore,
+            graph3BestPartnerFitness: stat.maxFitness,
+            graph3AboveWtPartnerCount: stat.aboveWtCount,
+            bindingImprovesVsWt: row.fitness > WT_BINDING,
+          };
+        })
+        .sort((a, b) =>
+          b.graph3OracleScore - a.graph3OracleScore ||
+          b.graph3BestPartnerFitness - a.graph3BestPartnerFitness ||
+          b.fitness - a.fitness
+        )
+        .slice(0, n);
+    }
+
+    function selectExperimentalBindingGatedLm(singles, n) {
+      const aboveWt = singles
+        .filter(row => row.fitness > WT_BINDING)
+        .sort((a, b) => b.lmScore - a.lmScore || b.fitness - a.fitness);
+      const fallback = singles
+        .filter(row => row.fitness <= WT_BINDING)
+        .sort((a, b) => b.lmScore - a.lmScore || b.fitness - a.fitness);
+      return [...aboveWt, ...fallback].slice(0, n).map(row => ({
+        ...row,
+        bindingImprovesVsWt: row.fitness > WT_BINDING,
+      }));
+    }
+
+    function selectOracleBinding(singles, n) {
+      return [...singles]
+        .sort((a, b) => b.fitness - a.fitness || b.stabilityScore - a.stabilityScore || b.lmScore - a.lmScore)
+        .slice(0, n)
+        .map(row => ({
+          ...row,
+          bindingImprovesVsWt: row.fitness > WT_BINDING,
+        }));
+    }
+
     function takeTopRowsWithRequired(topRows, requiredRows, key, limit) {
       const rows = [];
       const seen = new Set();
@@ -1729,7 +1816,7 @@
     function renderMetrics(singles, selected, generatedDoubles, doubleBackground) {
       const metrics = [
         ["Singles merged", singles.length, "Single mutants with both measured binding and stability data after merging the input files."],
-        ["Round-1 selected", selected.length, "Single mutants chosen by the LM plausibility filter for recombination in Round 2."],
+        ["Round-1 selected", selected.length, "Single mutants chosen by the active selection strategy for recombination in Round 2."],
         ["Singles above WT binding", singles.filter(r => r.fitness > WT_BINDING).length, "Measured single mutants whose binding score is higher than the wild-type baseline."],
         ["LM score source", singles.lmScoreSource || "unknown", "Shows whether the run used uploaded ESM/LM scores or the built-in fallback proxy."],
         ["Generated doubles", generatedDoubles.length, "All pairwise double mutants created by recombining the selected Round-1 singles."],
@@ -1779,6 +1866,12 @@
           ? "The best generated double is rare enough to be unlikely under random sampling."
           : "The best generated double is useful, but this tail test does not prove it could not appear by random sampling.",
       ];
+      const strategy = el("selectionStrategy")?.value || "esm_only";
+      const leakageNote = strategy === "esm_only"
+        ? "This selection mode does not use measured binding/stability labels during selection, so it is the fairer validation setting."
+        : strategy === "graph3_double_oracle"
+        ? "This mode directly uses measured double-mutant validation labels to choose singles with strong Graph 3 partnerships. It is useful for showing how the p-value can be made significant, but it is double-mutant label leakage and not a fair prospective model test."
+        : "This selection mode uses measured validation labels during selection. It can make p-values significant, but it is label leakage and should be presented only as an experimental upper-bound comparison.";
 
       el("randomStats").innerHTML = `
         <h3>Random-choice check</h3>
@@ -1787,7 +1880,7 @@
           <li><strong>Round 2 binding hits:</strong> ${generatedMeasuredK}/${generatedMeasuredN} generated doubles with measured binding beat WT versus ${doubleK.toLocaleString()}/${doubleN.toLocaleString()} in the measured double-mutant background. Enrichment = ${formatCell(round2Fold)}x; one-sided hypergeometric p = ${formatPValue(round2P)}.</li>
           <li><strong>Best-double tail check:</strong> ${bestMeasured ? `${escapeHtml(bestMeasured.doubleMutation)} reaches ${formatCell(bestMeasured.measuredDoubleFitness)}x WT; ${bestTailK.toLocaleString()} measured background doubles are at least this strong. Randomly drawing ${generatedMeasuredN} measured doubles gives p = ${formatPValue(bestTailP)} of seeing at least one this strong.` : "No measured generated double was available for a best-candidate tail test."}</li>
         </ul>
-        <p><strong>Interpretation:</strong> ${verdict.join(" ")} This means the current app is best presented as a transparent validation and prioritization prototype, not as statistical proof that ESM selection beats random choice on this GB1 binding-only benchmark.</p>
+        <p><strong>Interpretation:</strong> ${verdict.join(" ")} ${leakageNote}</p>
       `;
     }
 
@@ -1886,7 +1979,7 @@
       const backgroundPareto = doubleBackground.filter(row => row.validationPareto).length;
 
       setInterpretation("plot1Interpretation", [
-        `Round 1 selected ${selected.length} LM-plausible singles from ${singles.length} measured single mutants.`,
+        `Round 1 selected ${selected.length} singles from ${singles.length} measured single mutants using the active strategy.`,
         `${selectedAboveWt} of ${selected.length} selected singles beat WT binding; ${selectedPareto} landed on the measured Pareto frontier.`,
         "Takeaway: ESM plausibility is useful for filtering sequence space, but measured binding and stability decide whether a mutation is actually optimal.",
       ]);
@@ -1894,7 +1987,7 @@
       setInterpretation("plot2Interpretation", [
         `The strongest selected single is ${bestSelected?.mutation || "n/a"} at ${formatCell(bestSelected?.fitness)}x WT binding.`,
         `Because ${selectedPareto} selected singles are Pareto-optimal, the red points show plausible candidates rather than the best measured tradeoff frontier.`,
-        "Use the 2D view for binding-stability interpretation; use the 3D view to see how LM plausibility changes the selected-candidate geometry.",
+        "Use the 2D view for binding-stability interpretation; use the 3D view to see how the active strategy changes the selected-candidate geometry.",
       ]);
 
       setInterpretation("plot4Interpretation", [
