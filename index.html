@@ -863,8 +863,8 @@
       <span class="file-hint">How many top LM-plausible single mutants to carry into Round 2.</span>
 
       <label for="mutationOrder">Largest mutation combination</label>
-      <input id="mutationOrder" type="number" min="2" max="4" value="3">
-      <span class="file-hint">Use 2 for doubles, 3 for triples, or 4 for quadruples. Higher orders are capped to avoid lag.</span>
+      <input id="mutationOrder" type="number" min="2" max="8" value="5">
+      <span class="file-hint">Use 2 for doubles, 3 for triples, 4 for quadruples, or up to 8 for larger multi-mutants. The generated list is capped to avoid lag.</span>
 
       <label for="multiLimit">Max multi-mutants to generate</label>
       <input id="multiLimit" type="number" min="100" max="20000" value="3000">
@@ -895,7 +895,7 @@
           <div class="graph-help">
             <div class="x"><strong>Measured data</strong>Binding and stability CSVs anchor the graphs and validation tables.</div>
             <div class="y"><strong>LM score</strong>ESM/LM plausibility ranks which singles enter recombination.</div>
-            <div class="z"><strong>Multi-mutants</strong>Triples/quads are ranked by additive stability, additive LM score, and single-mutant binding evidence.</div>
+            <div class="z"><strong>Multi-mutants</strong>Triples and larger combinations are ranked by additive stability, additive LM score, and single-mutant binding evidence.</div>
             <div class="red"><strong>Safety cap</strong>The max multi-mutant limit prevents huge combination counts from slowing the page.</div>
           </div>
         </section>
@@ -1046,7 +1046,7 @@
         <div class="section-title">
           <div>
             <h2>Higher-Order Multi-Mutant Candidates</h2>
-            <p>This section extends the workflow past double mutants into triples and quadruples using capped, ranked combinations.</p>
+            <p>This section extends the workflow past double mutants into triples, quadruples, and larger capped combinations.</p>
           </div>
           <span class="badge purple">Multi</span>
         </div>
@@ -1068,7 +1068,7 @@
           <div class="x"><strong>X-axis</strong>Average measured binding of the component single mutants.</div>
           <div class="y"><strong>Y-axis</strong>Additive stability score across all component mutations.</div>
           <div class="z"><strong>Z-axis</strong>Additive ESM/LM plausibility score across all component mutations.</div>
-          <div class="red"><strong>Red points</strong>Top ranked triples/quads selected as testable recommendations.</div>
+          <div class="red"><strong>Red points</strong>Top ranked higher-order candidates selected as testable recommendations.</div>
         </div>
         <div id="multiTable" class="table-wrap"></div>
       </section>
@@ -1232,7 +1232,7 @@
         const doubleFitness = await readCsvInput(el("doubleFitness").files[0], "double-mutant binding", DEFAULT_CSVS.doubleFitness);
         const lmScores = await readCsvInput(el("lmScores").files[0], "optional ESM/LM scores", DEFAULT_CSVS.lmScores, true);
         const targetN = Math.max(2, Number(el("candidateCount").value || 20));
-        const maxOrder = Math.max(2, Math.min(4, Number(el("mutationOrder").value || 3)));
+        const maxOrder = Math.max(2, Math.min(8, Number(el("mutationOrder").value || 5)));
         const multiLimit = Math.max(100, Math.min(20000, Number(el("multiLimit").value || 3000)));
         ["plot1", "plot2", "plot4", "plotMulti"].forEach(canvasId => {
           selectedPointByCanvas.delete(canvasId);
@@ -1372,7 +1372,7 @@
       drawEmptyPlot("plot1", "Graph 1 will show selected single mutants after you run the workflow.");
       drawEmptyPlot("plot2", "Graph 2 will validate selected singles using measured binding and stability.");
       drawEmptyPlot("plot4", "Graph 3 will show generated double mutants after Round 2.");
-      drawEmptyPlot("plotMulti", "Multi-mutant graph will show capped triples/quads after you run the workflow.");
+      drawEmptyPlot("plotMulti", "Multi-mutant graph will show capped higher-order candidates after you run the workflow.");
       ["plot1", "plot2", "plot4", "plotMulti"].forEach(canvasId => renderMutationDetail(canvasId, null));
       el("bestCandidate").innerHTML = `
         <div>
@@ -1385,7 +1385,7 @@
         const panel = el(`${canvasId}Interpretation`);
         if (panel) panel.innerHTML = "<h3>Interpretation</h3><ul><li>Run the workflow to generate automatic result takeaways.</li></ul>";
       });
-      el("multiInterpretation").innerHTML = "<h3>Multi-mutant interpretation</h3><ul><li>Run the workflow to rank triples/quads using additive stability, additive LM score, and single-mutant binding evidence.</li></ul>";
+      el("multiInterpretation").innerHTML = "<h3>Multi-mutant interpretation</h3><ul><li>Run the workflow to rank higher-order candidates using additive stability, additive LM score, and single-mutant binding evidence.</li></ul>";
       el("round1Table").innerHTML = "<p class='note'>Run the workflow to see the selected Round-1 candidates.</p>";
       el("round2Table").innerHTML = "<p class='note'>Run the workflow to see highlighted Round-2 double mutants.</p>";
       el("multiTable").innerHTML = "<p class='note'>Run the workflow to see ranked higher-order multi-mutants.</p>";
@@ -1599,10 +1599,18 @@
       const startOrder = maxOrder <= 2 ? 2 : 3;
       const generated = [];
       const sortedSingles = [...selected].sort((a, b) => b.lmScore - a.lmScore || b.fitness - a.fitness);
-      for (let order = startOrder; order <= maxOrder; order++) {
+      const orders = [];
+      for (let order = startOrder; order <= maxOrder; order++) orders.push(order);
+      const basePerOrder = Math.max(1, Math.floor(limit / Math.max(orders.length, 1)));
+      let remainder = limit - basePerOrder * orders.length;
+      for (const order of orders) {
+        const orderLimit = basePerOrder + (remainder > 0 ? 1 : 0);
+        if (remainder > 0) remainder -= 1;
+        let generatedForOrder = 0;
         combineSingles(sortedSingles, order, 0, [], combo => {
-          if (generated.length >= limit) return false;
+          if (generated.length >= limit || generatedForOrder >= orderLimit) return false;
           generated.push(makeMultiMutant(combo));
+          generatedForOrder += 1;
           return true;
         });
         if (generated.length >= limit) break;
@@ -1772,10 +1780,10 @@
         .map(([order, count]) => `${count} ${order}-mutants`)
         .join(", ");
       setInterpretation("multiInterpretation", [
-        `Generated ${multiMutants.length} capped higher-order candidates up to ${maxOrder} mutations; requested cap was ${limit}.`,
+        `Generated ${multiMutants.length} capped higher-order candidates up to ${maxOrder} mutations; requested cap was ${limit}, split across mutation orders so larger combinations are visible.`,
         `Composition: ${orderText || "no higher-order candidates generated"}.`,
         best ? `Top recommendation is ${best.multiMutation}, ranked by average single binding evidence, additive stability, and additive LM score.` : "No multi-mutant candidates were generated.",
-        "Important: triples/quads are prioritization hypotheses. Their binding is not experimentally measured in this local dataset.",
+        "Important: higher-order candidates beyond measured doubles are prioritization hypotheses. Their binding is not experimentally measured in this local dataset.",
       ]);
     }
 

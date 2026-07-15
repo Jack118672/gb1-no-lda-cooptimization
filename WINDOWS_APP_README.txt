@@ -10,6 +10,7 @@ How to launch:
 What the app does:
 - Loads the packaged GB1 binding, stability, double-mutant, and ESM/LM score CSV files.
 - Runs the no-LDA co-optimization workflow.
+- Generates capped higher-order multi-mutant recommendations up to 8 mutations.
 - Shows Inputs / Run, Outputs / Results, and a 3D Mutation Model.
 - Automatically loads a bundled real GB1 WT PDB structure, so no extra structure files are required.
 - Draws the 3D Model as a protein-cartoon ribbon with helix, beta-sheet, and loop regions instead of a dot cloud.
